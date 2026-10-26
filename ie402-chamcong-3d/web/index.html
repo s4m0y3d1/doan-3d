@@ -28,14 +28,14 @@
     <div class="goi-y">
       <b>Tài khoản thử nghiệm</b> (mật khẩu đều là <code>123456</code>)
       <table>
-        <tr><td><a href="#" data-tk="an.nv">an.nv</a></td>
-            <td>Nguyễn Văn An</td><td>Nhân viên · Alpha Tech, tầng 5–8</td></tr>
-        <tr><td><a href="#" data-tk="binh.tt">binh.tt</a></td>
-            <td>Trần Thị Bình</td><td>Quản lý</td></tr>
-        <tr><td><a href="#" data-tk="cuong.lm">cuong.lm</a></td>
-            <td>Lê Minh Cường</td><td>Nhân viên · Beta Finance, tầng 20–24</td></tr>
-        <tr><td><a href="#" data-tk="dung.pt">dung.pt</a></td>
-            <td>Phạm Thu Dung</td><td>Quản trị · Gamma Media, tầng 35–40</td></tr>
+        <tr><td><a href="#" data-tk="khoi.nm">khoi.nm</a></td>
+            <td>Nguyễn Minh Khôi</td><td>Nhân viên · Alpha Tech, tầng 5–8</td></tr>
+        <tr><td><a href="#" data-tk="nhan.vt">nhan.vt</a></td>
+            <td>Võ Thành Nhân</td><td>Quản lý</td></tr>
+        <tr><td><a href="#" data-tk="vy.nt">vy.nt</a></td>
+            <td>Nguyễn Tường Vy</td><td>Nhân viên · Beta Finance, tầng 20–24</td></tr>
+        <tr><td><a href="#" data-tk="tin.nh">tin.nh</a></td>
+            <td>Nguyễn Hữu Tín</td><td>Quản trị · Gamma Media, tầng 35–40</td></tr>
       </table>
     </div>
   </form>
@@ -49,6 +49,7 @@
       <button data-tab="chamcong" class="chon">Chấm công</button>
       <button data-tab="lichsu">Lịch sử</button>
       <button data-tab="quanly" class="chi-quan-ly">Quản lý</button>
+      <button data-tab="quantri" class="chi-quan-tri">Quản trị</button>
     </nav>
     <div class="nguoi-dung">
       <span id="tenNguoiDung"></span>
@@ -156,9 +157,90 @@
         </table>
       </div>
     </section>
+    <!-- ---------- TAB QUẢN TRỊ: thêm / sửa / xoá dữ liệu nền ---------- -->
+    <section id="tab-quantri" class="tab-noi-dung an">
+      <div class="cot-trai qt-trai">
+        <nav class="qt-tab" id="qtTab">
+          <button data-qt="thong-ke" class="chon">Thống kê</button>
+          <button data-qt="toa-nha">Toà nhà</button>
+          <button data-qt="van-phong">Văn phòng &amp; khối MAP</button>
+          <button data-qt="nhan-vien">Nhân viên</button>
+          <button data-qt="ca-lam-viec">Ca làm việc</button>
+          <button data-qt="cong-ty">Công ty</button>
+          <button data-qt="phong-ban">Phòng ban</button>
+        </nav>
+
+        <!-- Thống kê tổng hợp -->
+        <div id="qtThongKe">
+          <div class="the">
+            <h2>Dữ liệu nền</h2>
+            <div class="o-so" id="qtOSo"></div>
+          </div>
+          <div class="the">
+            <h2>Chấm công theo khối MAP</h2>
+            <p class="ghi-chu">Bấm một dòng để bay tới khối đó trên bản đồ.</p>
+            <table class="bang" id="qtBangKhoi">
+              <thead><tr><th>Khối</th><th>Tổng</th><th>Hợp lệ</th><th>Nghi ngờ</th><th>Ngoài vùng</th></tr></thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Danh sách + biểu mẫu cho từng loại dữ liệu -->
+        <div id="qtDanhSach" class="an">
+          <div class="the">
+            <div class="dau-the">
+              <h2 id="qtTieuDe"></h2>
+              <button class="btn nho" id="qtThem">+ Thêm mới</button>
+            </div>
+            <div class="bang-cuon">
+              <table class="bang" id="qtBang"><thead></thead><tbody></tbody></table>
+            </div>
+          </div>
+
+          <form class="the an" id="qtForm" novalidate>
+            <div class="dau-the">
+              <h2 id="qtFormTieuDe"></h2>
+              <button type="button" class="btn nho" id="qtDong">Đóng</button>
+            </div>
+            <div id="qtTruong" class="qt-truong"></div>
+            <p class="loi" id="qtLoi"></p>
+            <div class="hang nut-nhom">
+              <button type="submit" class="btn chinh" id="qtLuu">Lưu</button>
+            </div>
+          </form>
+
+          <!-- Phân ca: chỉ hiện ở mục Ca làm việc -->
+          <div class="the an" id="qtPhanCa">
+            <h2>Phân ca cho nhân viên</h2>
+            <div class="qt-truong">
+              <label>Nhân viên<select id="pcNhanVien"></select></label>
+              <label>Ca<select id="pcCa"></select></label>
+              <label>Từ ngày<input type="date" id="pcTu" /></label>
+              <label>Đến ngày<input type="date" id="pcDen" /></label>
+              <label class="hop-chon"><input type="checkbox" id="pcCuoiTuan" /> Gồm thứ Bảy, Chủ nhật</label>
+            </div>
+            <p class="loi" id="pcLoi"></p>
+            <button class="btn chinh" id="pcGan" type="button">Gán ca</button>
+            <h2 style="margin-top:14px">Lịch 7 ngày tới</h2>
+            <table class="bang" id="pcBang">
+              <thead><tr><th>Ngày</th><th>Nhân viên</th><th>Ca</th><th></th></tr></thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div class="qt-ban-do-khung">
+        <div id="banDoQuanTri"></div>
+        <div class="qt-goi-y" id="qtGoiY">Chọn một dòng để xem trên bản đồ 3D.</div>
+      </div>
+    </section>
   </main>
 </div>
 
+<script src="mo-hinh-3d.js"></script>
 <script src="app.js"></script>
+<script src="quan-tri.js"></script>
 </body>
 </html>

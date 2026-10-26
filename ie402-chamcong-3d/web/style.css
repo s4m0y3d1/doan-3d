@@ -78,7 +78,11 @@ main { padding: 14px; }
 .tab-noi-dung { display: block; }
 #tab-chamcong { display: grid; grid-template-columns: 370px 1fr; gap: 14px; }
 #tab-chamcong.an { display: none; }
-@media (max-width: 900px) { #tab-chamcong { grid-template-columns: 1fr; } }
+#tab-quantri { display: grid; grid-template-columns: 440px 1fr; gap: 14px; }
+#tab-quantri.an { display: none; }
+@media (max-width: 900px) {
+  #tab-chamcong, #tab-quantri { grid-template-columns: 1fr; }
+}
 
 .the {
   background: #fff; border: 1px solid var(--vien); border-radius: 10px;
@@ -154,3 +158,55 @@ button.xuat {
 }
 button.xuat:hover { background: #f2f4f7; border-color: #9aa3b0; }
 button.xuat:disabled { opacity: .55; cursor: progress; }
+
+/* ---------- nút LOD trên bản đồ ---------- */
+.dk-lod { padding: 8px 10px; font-size: 12.5px; display: flex; flex-direction: column; gap: 7px; }
+.dk-nhom { display: flex; border: 1px solid var(--vien); border-radius: 6px; overflow: hidden; }
+.dk-nhom button {
+  flex: 1; border: 0; background: #fff; padding: 5px 12px; font-weight: 700;
+  font-size: 12px; cursor: pointer; color: var(--chu-nhat);
+}
+.dk-nhom button.chon { background: var(--chinh); color: #fff; }
+.dk-lod label { display: flex; gap: 6px; align-items: center; cursor: pointer; }
+
+/* ---------- tab quản trị ---------- */
+.qt-trai { max-height: calc(100vh - 110px); overflow-y: auto; overflow-x: hidden; padding-right: 2px; min-width: 0; }
+.qt-tab { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 12px; }
+.qt-tab button {
+  border: 1px solid var(--vien); background: #fff; border-radius: 16px;
+  padding: 5px 11px; font-size: 12.5px; font-weight: 600; cursor: pointer; color: var(--chu-nhat);
+}
+.qt-tab button.chon { background: #ddf4ff; border-color: var(--chinh); color: #0a3069; }
+.bang-cuon { max-height: 340px; overflow: auto; margin-top: 8px; }
+.bang tr.dang-chon { background: #ddf4ff; }
+.bang td.thao-tac { white-space: nowrap; text-align: right; }
+.bang .btn.nho + .btn.nho { margin-left: 4px; }
+.btn.xoa { color: var(--do); }
+.qt-truong { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 0 12px; }
+.qt-truong label {
+  display: flex; flex-direction: column; gap: 4px; margin: 10px 0 0;
+  font-size: 11.5px; font-weight: 700; color: var(--chu-nhat);
+}
+.qt-truong label.rong, .qt-truong .rong { grid-column: 1 / -1; }
+.qt-truong input, .qt-truong select {
+  width: 100%; min-width: 0;
+  padding: 7px 9px; border: 1px solid var(--vien); border-radius: 6px;
+  font-size: 13.5px; font-weight: 400; color: #1f2328; background: #fff;
+}
+.qt-truong label.hop-chon { flex-direction: row; align-items: center; font-weight: 600; }
+.qt-truong label.hop-chon input { width: auto; }
+.qt-truong .goi-y-nho { font-weight: 400; font-size: 11.5px; color: var(--chu-nhat); }
+.hinh-hoc {
+  grid-column: 1 / -1; margin-top: 10px; padding: 10px; border: 1px dashed #b6c2cf;
+  border-radius: 8px; background: #f8fafc; font-size: 12.5px;
+}
+.hinh-hoc .hang { flex-wrap: wrap; margin-top: 7px; gap: 6px; }
+.hinh-hoc b { color: #1f2328; }
+.qt-ban-do-khung { position: relative; }
+#banDoQuanTri { height: calc(100vh - 110px); border: 1px solid var(--vien); border-radius: 10px; }
+.qt-goi-y {
+  position: absolute; left: 50%; bottom: 18px; transform: translateX(-50%);
+  background: rgba(31, 35, 40, .86); color: #fff; padding: 7px 14px; border-radius: 18px;
+  font-size: 12.5px; pointer-events: none; max-width: 90%; text-align: center;
+}
+.qt-goi-y.ve { background: #9a6700; }

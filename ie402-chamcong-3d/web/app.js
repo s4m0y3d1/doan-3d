@@ -9,8 +9,9 @@ var toi = null;               // thông tin nhân viên đang đăng nhập
 var khuVuc = [];              // danh sách khối MAP
 var viTriMoPhong = null;      // toạ độ do người dùng bấm trên bản đồ
 var dangChoBamBanDo = false;
+var toaNha = [];              // danh sách toà nhà để dựng mô hình 3D
 var view = null, lopDiem = null, lopKhoi = null;
-var lopToaNha = null;         // vỏ toàn bộ toà nhà, dựng từ footprint thật
+var lopLod1 = null, lopLod3 = null; // mô hình toà nhà ở hai mức chi tiết
 var lopTang = null;           // tấm sàn của tầng đang chọn trên thanh trượt
 
 /* ---------------- gọi API ---------------- */
@@ -29,6 +30,14 @@ async function api(duong, tuyChon) {
 }
 
 var $ = function (id) { return document.getElementById(id); };
+
+// Mọi chuỗi do người dùng nhập (tên, lý do giải trình…) phải escape trước khi
+// đưa vào innerHTML, nếu không sẽ thành lỗ hổng XSS lưu trữ.
+function esc(v) {
+  return String(v === null || v === undefined ? "" : v)
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+}
 
 /* ===================================================================
    1. ĐĂNG NHẬP
@@ -75,6 +84,7 @@ function dangXuat() {
 async function vaoUngDung() {
   toi = await api("/api/toi");
   khuVuc = await api("/api/khu-vuc");
+  toaNha = await api("/api/toa-nha");
 
   $("manDangNhap").classList.add("an");
   $("ungDung").classList.remove("an");
@@ -86,47 +96,76 @@ async function vaoUngDung() {
   document.querySelectorAll(".chi-quan-ly").forEach(function (el) {
     el.style.display = laQuanLy ? "" : "none";
   });
+  // tab Quản trị (thêm / sửa / xoá dữ liệu nền) chỉ dành cho quản trị viên
+  document.querySelectorAll(".chi-quan-tri").forEach(function (el) {
+    el.style.display = toi.vai_tro === "QUAN_TRI" ? "" : "none";
+  });
+  // đăng nhập lại bằng tài khoản khác thì quay về tab Chấm công
+  chonTab("chamcong");
 
-  $("thongTinLamViec").innerHTML = [
-    ["Công ty", toi.ten_cong_ty],
-    ["Văn phòng", toi.ten_van_phong],
-    ["Toà nhà", toi.ten_toa_nha],
-    ["Dải tầng", "Tầng " + toi.tang_bat_dau + "–" + toi.tang_ket_thuc],
-    ["Dải cao độ khối", Number(toi.z_min).toFixed(2) + " – " + Number(toi.z_max).toFixed(2) + " m"],
-    ["Dung sai", "δxy " + Number(toi.dung_sai_ngang) + " m · δz " + Number(toi.dung_sai_dung) + " m"],
-  ].map(function (r) {
-    return "<div><dt>" + r[0] + "</dt><dd>" + r[1] + "</dd></div>";
-  }).join("");
-
-  var tang = $("tang");
-  tang.max = toi.so_tang;
-  tang.value = Math.min(Math.max(toi.tang_bat_dau, 1), toi.so_tang);
-  capNhatTang();
+  hienThongTinLamViec();
 
   dungBanDo();
   await taiLichSu();
   if (laQuanLy) await taiQuanLy();
 }
 
+function hienThongTinLamViec() {
+  var coKhoi = toi.ma_khu_vuc !== null && toi.ma_khu_vuc !== undefined;
+  $("thongTinLamViec").innerHTML = (coKhoi ? [
+    ["Công ty", toi.ten_cong_ty],
+    ["Văn phòng", toi.ten_van_phong + (toi.so_khoi_cua_cong_ty > 1
+      ? " (+" + (toi.so_khoi_cua_cong_ty - 1) + " khối khác)" : "")],
+    ["Toà nhà", toi.ten_toa_nha],
+    ["Dải tầng", "Tầng " + toi.tang_bat_dau + "–" + toi.tang_ket_thuc],
+    ["Dải cao độ khối", Number(toi.z_min).toFixed(2) + " – " + Number(toi.z_max).toFixed(2) + " m"],
+    ["Dung sai", "δxy " + Number(toi.dung_sai_ngang) + " m · δz " + Number(toi.dung_sai_dung) + " m"],
+  ] : [
+    ["Công ty", toi.ten_cong_ty],
+    ["Khu vực chấm công", "Chưa được gán — liên hệ quản trị viên"],
+  ]).map(function (r) {
+    return "<div><dt>" + esc(r[0]) + "</dt><dd>" + esc(r[1]) + "</dd></div>";
+  }).join("");
+
+  var tang = $("tang");
+  tang.max = toi.so_tang || 60;
+  tang.value = coKhoi ? Math.min(Math.max(toi.tang_bat_dau, 1), toi.so_tang) : 1;
+  capNhatTang();
+}
+
+/* Gọi sau khi quản trị viên thêm / sửa / xoá: nạp lại dữ liệu và vẽ lại bản đồ. */
+async function napLaiDuLieuNen() {
+  toi = await api("/api/toi");
+  khuVuc = await api("/api/khu-vuc");
+  toaNha = await api("/api/toa-nha");
+  hienThongTinLamViec();
+  if (view) veDuLieuBanDo();
+}
+window.napLaiDuLieuNen = napLaiDuLieuNen;
+
 /* ===================================================================
    3. TAB
    =================================================================== */
-document.querySelectorAll(".tab button").forEach(function (b) {
-  b.addEventListener("click", function () {
-    document.querySelectorAll(".tab button").forEach(function (x) { x.classList.remove("chon"); });
-    b.classList.add("chon");
-    ["chamcong", "lichsu", "quanly"].forEach(function (t) {
-      $("tab-" + t).classList.toggle("an", t !== b.dataset.tab);
-    });
-    if (b.dataset.tab === "lichsu") taiLichSu();
-    if (b.dataset.tab === "quanly") taiQuanLy();
+function chonTab(ten) {
+  document.querySelectorAll(".tab button").forEach(function (x) {
+    x.classList.toggle("chon", x.dataset.tab === ten);
   });
+  ["chamcong", "lichsu", "quanly", "quantri"].forEach(function (t) {
+    $("tab-" + t).classList.toggle("an", t !== ten);
+  });
+  if (ten === "lichsu") taiLichSu();
+  if (ten === "quanly") taiQuanLy();
+  if (ten === "quantri" && window.QuanTri) window.QuanTri.mo();
+}
+document.querySelectorAll(".tab button").forEach(function (b) {
+  b.addEventListener("click", function () { chonTab(b.dataset.tab); });
 });
 
 /* ===================================================================
    4. CHẤM CÔNG
    =================================================================== */
 function caoDoCuaTang(t) {
+  if (toi.cao_do_nen === null || toi.cao_do_nen === undefined) return 0;
   return Number(toi.cao_do_nen) + (t - 0.5) * Number(toi.chieu_cao_tang);
 }
 function capNhatTang() {
@@ -257,15 +296,15 @@ function hienKetQua(kq, loai) {
    5. BẢN ĐỒ 3D
    =================================================================== */
 function dungBanDo() {
-  if (view) return;
+  if (view) { lopDiem.removeAll(); veDuLieuBanDo(); return; }
   require([
     "esri/Map", "esri/views/SceneView", "esri/layers/GraphicsLayer",
-    "esri/Graphic", "esri/geometry/Polygon", "esri/geometry/Point",
-  ], function (Map, SceneView, GraphicsLayer, Graphic, Polygon, Point) {
+  ], function (Map, SceneView, GraphicsLayer) {
 
     var tuyChonLop = { elevationInfo: { mode: "absolute-height" } };
-    lopToaNha = new GraphicsLayer(tuyChonLop);
-    lopKhoi   = new GraphicsLayer(tuyChonLop);
+    lopLod1   = new GraphicsLayer(Object.assign({ title: "Toà nhà LOD1" }, tuyChonLop));
+    lopLod3   = new GraphicsLayer(Object.assign({ title: "Toà nhà LOD3" }, tuyChonLop));
+    lopKhoi   = new GraphicsLayer(Object.assign({ title: "Khối MAP" }, tuyChonLop));
     lopTang   = new GraphicsLayer(tuyChonLop);
     lopDiem   = new GraphicsLayer(tuyChonLop);
 
@@ -273,69 +312,25 @@ function dungBanDo() {
       basemap: "topo-vector",
       ground: "world-elevation",
       // Thứ tự vẽ: vỏ toà nhà nằm dưới, tấm sàn và điểm chấm công nằm trên.
-      layers: [lopToaNha, lopKhoi, lopTang, lopDiem],
+      layers: [lopLod1, lopLod3, lopKhoi, lopTang, lopDiem],
     });
 
-    var mau = [[232, 98, 42], [31, 111, 235], [130, 80, 223], [26, 127, 55]];
-    var tam = null;
-
-    /* --- toà nhà: dựng nhiều khối cho giống công trình thật ----------
-       Nguồn hình: footprint thật của toà nhà trong CSDL. Từ đường bao đó
-       suy ra đế, thân tháp kính, dải sàn từng tầng, chóp mái và cột thu lôi.
-       Mỗi toà nhà chỉ dựng một lần dù có nhiều văn phòng bên trong.     */
-    var daVe = {};
-    khuVuc.forEach(function (k) {
-      if (!k.footprint_toa_nha || daVe[k.ten_toa_nha]) return;
-      daVe[k.ten_toa_nha] = true;
-      dungKhoiNha(Graphic, Polygon, Point, k);
-    });
-
-    khuVuc.forEach(function (k, i) {
-      var hinh = JSON.parse(k.da_giac_nen);
-      var zMin = Number(k.z_min), zMax = Number(k.z_max);
-      var rings = hinh.coordinates.map(function (r) {
-        return r.map(function (p) { return [p[0], p[1], zMin]; });
-      });
-      if (!tam) tam = rings[0][0];
-
-      var laCuaToi = k.ma_khu_vuc === toi.ma_khu_vuc;
-      var c = mau[i % mau.length];
-
-      lopKhoi.add(new Graphic({
-        geometry: new Polygon({ rings: rings, spatialReference: { wkid: 4326 } }),
-        symbol: {
-          type: "polygon-3d",
-          symbolLayers: [{
-            type: "extrude",
-            size: zMax - zMin,
-            material: { color: c.concat([laCuaToi ? 0.30 : 0.16]) },
-            edges: { type: "solid", size: laCuaToi ? 1.6 : 0.8, color: c.concat([1]) },
-          }],
-        },
-        popupTemplate: {
-          title: k.ten_van_phong,
-          content:
-            "<b>Công ty:</b> " + k.ten_cong_ty + "<br/>" +
-            "<b>Toà nhà:</b> " + k.ten_toa_nha + "<br/>" +
-            "<b>Dải tầng:</b> " + k.tang_bat_dau + "–" + k.tang_ket_thuc + "<br/>" +
-            "<b>z_min:</b> " + zMin.toFixed(2) + " m<br/>" +
-            "<b>z_max:</b> " + zMax.toFixed(2) + " m<br/>" +
-            "<b>Dung sai:</b> δxy " + k.dung_sai_ngang + " m · δz " + k.dung_sai_dung + " m",
-        },
-      }));
-    });
+    // Khung hình: lấy trọn toà nhà của nhân viên (hoặc toà nhà đầu tiên).
+    var kvCuaToi = khuVuc.find(function (k) { return k.ma_khu_vuc === toi.ma_khu_vuc; });
+    var fpTam = kvCuaToi ? kvCuaToi.footprint_toa_nha : (toaNha[0] && toaNha[0].footprint);
+    var tam = fpTam ? MoHinh3D.tamCua(fpTam) : [106.7009, 10.7769];
 
     view = new SceneView({
       container: "banDo",
       map: map,
       camera: {
-        // Khung hình lấy trọn 42 tầng: thấy được tầng đang chọn nằm trong hay
-        // ngoài dải khối của mình, thay vì chỉ nhìn thấy mỗi dải khối.
-        position: [tam[0] - 0.0040, tam[1] - 0.0040, 215],
-        heading: 35, tilt: 70,
+        // Thấy được cả 42 tầng: tầng đang chọn nằm trong hay ngoài dải khối.
+        position: [tam[0] - 0.0021, tam[1] - 0.0021, 330],
+        heading: 40, tilt: 62,
       },
     });
     view.ui.move("zoom", "top-right");
+    MoHinh3D.nutDieuKhien(view, lopLod1, lopLod3, lopKhoi);
 
     view.on("click", function (e) {
       if (!dangChoBamBanDo || !e.mapPoint) return;
@@ -347,108 +342,28 @@ function dungBanDo() {
     });
 
     window.ungDung = { view: view, api: api, chamCong: chamCong };
-    veTangDangChon(Number($("tang").value));
+    veDuLieuBanDo();
   });
 }
 
-/* Dựng hình khối một toà nhà từ đường bao thật.
-   Chia thành đế, thân tháp, dải sàn, chóp mái và cột thu lôi để khối nhà
-   đọc ra là một cao ốc chứ không phải một hộp trơn. */
-function dungKhoiNha(Graphic, Polygon, Point, k) {
-  var fp = JSON.parse(k.footprint_toa_nha);
-  var zNen = Number(k.cao_do_nen);
-  var hTang = Number(k.chieu_cao_tang);
-  var soTang = Number(k.so_tang);
-  var dinh = zNen + soTang * hTang;
-
-  /* Tâm đường bao, dùng làm gốc khi phóng to / thu nhỏ mặt bằng. */
-  var diem = fp.coordinates[0];
-  var cx = 0, cy = 0;
-  diem.forEach(function (p) { cx += p[0]; cy += p[1]; });
-  cx /= diem.length; cy /= diem.length;
-
-  /* Phóng mặt bằng theo hệ số quanh tâm, trả về rings ở cao độ z. */
-  function mat(heSo, z) {
-    return fp.coordinates.map(function (r) {
-      return r.map(function (p) {
-        return [cx + (p[0] - cx) * heSo, cy + (p[1] - cy) * heSo, z];
+/* Vẽ (lại) toà nhà ở hai mức LOD và các khối MAP từ dữ liệu hiện có. */
+function veDuLieuBanDo() {
+  MoHinh3D.napModule().then(function () {
+    lopLod1.removeAll();
+    lopLod3.removeAll();
+    lopKhoi.removeAll();
+    toaNha.forEach(function (tn) {
+      MoHinh3D.dungLod1(lopLod1, tn);
+      MoHinh3D.dungLod3(lopLod3, tn);
+    });
+    var mau = [[232, 98, 42], [31, 111, 235], [130, 80, 223], [26, 127, 55]];
+    khuVuc.forEach(function (k, i) {
+      MoHinh3D.veKhoiMap(lopKhoi, k, {
+        mau: mau[i % mau.length], noiBat: k.ma_khu_vuc === toi.ma_khu_vuc,
       });
     });
-  }
-  function khoi(heSo, z, cao, mauSac, vien, coVien) {
-    return new Graphic({
-      geometry: new Polygon({ rings: mat(heSo, z), spatialReference: { wkid: 4326 } }),
-      symbol: {
-        type: "polygon-3d",
-        symbolLayers: [{
-          type: "extrude",
-          size: cao,
-          material: { color: mauSac },
-          edges: coVien ? { type: "solid", size: 0.7, color: vien } : null,
-        }],
-      },
-    });
-  }
-
-  var KINH   = [138, 170, 190, 0.26];   // kính xanh lam nhạt, đủ trong để nhìn thấy tầng
-  var BETONG = [206, 208, 210, 0.92];
-  var VIEN   = [92, 104, 118, 0.8];
-
-  /* Sân nền quanh chân công trình. */
-  lopToaNha.add(khoi(2.1, zNen - 0.4, 0.4, [225, 225, 222, 0.95], [180, 180, 176, 1], false));
-
-  /* Đế bốn tầng, rộng hơn thân tháp. */
-  var hDe = 4 * hTang;
-  lopToaNha.add(khoi(1.22, zNen, hDe, [196, 198, 200, 0.75], VIEN, true));
-  lopToaNha.add(khoi(1.26, zNen + hDe, 0.9, BETONG, VIEN, false));   // mái đế nhô ra
-
-  /* Thân tháp kính, từ đỉnh đế lên tới sàn mái. */
-  lopToaNha.add(khoi(1.0, zNen + hDe, dinh - (zNen + hDe), KINH, VIEN, true));
-
-  /* Dải sàn từng tầng: vành bê tông mỏng nhô ra, tạo vệt ngang của cao ốc. */
-  for (var t = 5; t <= soTang; t++) {
-    lopToaNha.add(khoi(1.035, zNen + t * hTang - 0.35, 0.5, BETONG, VIEN, false));
-  }
-
-  /* Chóp mái thu nhỏ + cột thu lôi. */
-  lopToaNha.add(khoi(0.82, dinh, hTang * 1.6, [178, 184, 190, 0.9], VIEN, true));
-  lopToaNha.add(khoi(0.5, dinh + hTang * 1.6, 2.2, BETONG, VIEN, false));
-  lopToaNha.add(new Graphic({
-    geometry: new Point({ longitude: cx, latitude: cy,
-                          z: dinh + hTang * 1.6 + 2.2 + 5,
-                          spatialReference: { wkid: 4326 } }),
-    symbol: {
-      type: "point-3d",
-      symbolLayers: [{
-        type: "object", resource: { primitive: "cylinder" },
-        material: { color: [120, 128, 136] },
-        width: 0.8, depth: 0.8, height: 10,
-      }],
-    },
-  }));
-
-  /* Nhãn tên toà nhà, gắn ở cao độ đỉnh mái. */
-  lopToaNha.add(new Graphic({
-    geometry: new Point({ longitude: cx, latitude: cy, z: dinh + hTang * 1.2,
-                          spatialReference: { wkid: 4326 } }),
-    symbol: {
-      type: "point-3d",
-      symbolLayers: [{
-        type: "text", text: k.ten_toa_nha,
-        material: { color: [40, 48, 58] },
-        halo: { color: [255, 255, 255, 0.9], size: 1.2 },
-        size: 11,
-      }],
-    },
-    popupTemplate: {
-      title: k.ten_toa_nha,
-      content:
-        "<b>Số tầng:</b> " + soTang + "<br/>" +
-        "<b>Chiều cao tầng:</b> " + hTang.toFixed(2) + " m<br/>" +
-        "<b>Cao độ nền:</b> " + zNen.toFixed(2) + " m<br/>" +
-        "<b>Sàn mái:</b> " + dinh.toFixed(2) + " m",
-    },
-  }));
+    veTangDangChon(Number($("tang").value));
+  });
 }
 
 /* Tô sáng đúng tấm sàn của tầng đang chọn, đặt trong vỏ toà nhà.
@@ -456,7 +371,7 @@ function dungKhoiNha(Graphic, Polygon, Point, k) {
 function veTangDangChon(tang) {
   if (!lopTang) return;
   var kv = khuVuc.find(function (k) { return k.ma_khu_vuc === toi.ma_khu_vuc; });
-  if (!kv || !kv.footprint_toa_nha) return;
+  if (!kv || !kv.footprint_toa_nha) { lopTang.removeAll(); return; }
 
   require(["esri/Graphic", "esri/geometry/Polygon"], function (Graphic, Polygon) {
     lopTang.removeAll();
@@ -577,12 +492,12 @@ async function taiLichSu() {
     if (r.trang_thai !== "HOP_LE" && !r.trang_thai_don) {
       nutDon = "<button class='btn nho' onclick='guiGiaiTrinh(" + r.ma_ban_ghi + ")'>Gửi giải trình</button>";
     } else if (r.trang_thai_don) {
-      nutDon = r.trang_thai_don.replace("_", " ");
+      nutDon = esc(r.trang_thai_don.replace("_", " "));
     }
     return "<tr>" +
       "<td>" + new Date(r.thoi_diem).toLocaleString("vi-VN") + "</td>" +
-      "<td>" + r.loai + "</td>" +
-      "<td>" + (r.tang_khai_bao || "—") + "</td>" +
+      "<td>" + esc(r.loai) + "</td>" +
+      "<td>" + esc(r.tang_khai_bao || "—") + "</td>" +
       "<td>" + (r.cao_do === null ? "—" : Number(r.cao_do).toFixed(2) + " m") + "</td>" +
       "<td><span class='nhan " + nhan + "'>" + r.trang_thai + "</span></td>" +
       "<td>" + (r.so_canh_bao > 0 ? r.so_canh_bao : "—") + "</td>" +
@@ -628,19 +543,19 @@ async function taiQuanLy() {
     return "<tr>" +
       "<td><span class='nhan " + (r.muc_do === "CAO" ? "n-cao" : "n-tb") + "'>" + r.muc_do + "</span></td>" +
       "<td><b>" + r.ma_quy_tac + "</b></td>" +
-      "<td>" + r.ho_ten + "</td>" +
+      "<td>" + esc(r.ho_ten) + "</td>" +
       "<td>" + new Date(r.thoi_diem).toLocaleString("vi-VN") + "</td>" +
-      "<td>" + r.mo_ta + "</td>" +
+      "<td>" + esc(r.mo_ta) + "</td>" +
       "<td>" + (r.da_xu_ly ? "rồi" : "chưa") + "</td></tr>";
   }).join("") : "<tr><td colspan='6' style='color:#8c959f'>Chưa có cảnh báo</td></tr>";
 
   var don = await api("/api/giai-trinh?trang_thai=CHO_DUYET");
   $("bangDon").querySelector("tbody").innerHTML = don.length ? don.map(function (r) {
     return "<tr>" +
-      "<td>" + r.ho_ten + "</td>" +
-      "<td>#" + r.ma_ban_ghi + " · " + r.trang_thai_ban_ghi + "</td>" +
-      "<td>" + r.ly_do + "</td>" +
-      "<td>" + r.trang_thai + "</td>" +
+      "<td>" + esc(r.ho_ten) + "</td>" +
+      "<td>#" + esc(r.ma_ban_ghi) + " · " + esc(r.trang_thai_ban_ghi) + "</td>" +
+      "<td>" + esc(r.ly_do) + "</td>" +
+      "<td>" + esc(r.trang_thai) + "</td>" +
       "<td><button class='btn nho' onclick='duyet(" + r.ma_don + ",\"DA_DUYET\")'>Duyệt</button> " +
       "<button class='btn nho' onclick='duyet(" + r.ma_don + ",\"TU_CHOI\")'>Từ chối</button></td>" +
       "</tr>";
@@ -648,7 +563,7 @@ async function taiQuanLy() {
 
   var bc = await api("/api/bao-cao/cong");
   $("bangBaoCao").querySelector("tbody").innerHTML = bc.dong.map(function (r) {
-    return "<tr><td>" + r.ho_ten + "</td><td>" + r.ten_cong_ty + "</td>" +
+    return "<tr><td>" + esc(r.ho_ten) + "</td><td>" + esc(r.ten_cong_ty) + "</td>" +
       "<td>" + r.so_lan_vao + "</td><td>" + r.hop_le + "</td>" +
       "<td>" + r.nghi_ngo + "</td><td>" + r.ngoai_vung + "</td>" +
       "<td>" + r.so_ngay_cong + "</td></tr>";
