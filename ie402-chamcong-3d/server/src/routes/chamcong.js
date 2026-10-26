@@ -49,26 +49,83 @@ router.get("/cham-cong/lich-su.csv", canDangNhap, async (req, res) => {
  * Thông tin người đang đăng nhập + văn phòng + khối MAP của họ
  * ------------------------------------------------------------------ */
 router.get("/toi", canDangNhap, async (req, res) => {
+  // Nhân viên chưa có văn phòng (vừa được quản trị viên tạo) vẫn đăng nhập
+  // được — các trường khối MAP khi đó là null.
   const { rows } = await q(
     `SELECT nv.ma_nhan_vien, nv.ho_ten, nv.email,
-            pb.ten_phong_ban, ct.ten_cong_ty,
-            vp.ma_van_phong, vp.ten AS ten_van_phong,
-            vp.tang_bat_dau, vp.tang_ket_thuc,
-            tn.ten AS ten_toa_nha, tn.cao_do_nen, tn.so_tang, tn.chieu_cao_tang,
-            kv.ma_khu_vuc, kv.z_min, kv.z_max,
-            kv.dung_sai_ngang, kv.dung_sai_dung,
-            ST_AsGeoJSON(kv.da_giac_nen) AS da_giac_nen
+            pb.ten_phong_ban, ct.ten_cong_ty, k.*
        FROM nhan_vien nv
        JOIN cong_ty   ct ON ct.ma_cong_ty = nv.ma_cong_ty
        LEFT JOIN phong_ban pb ON pb.ma_phong_ban = nv.ma_phong_ban
-       JOIN van_phong vp ON vp.ma_cong_ty = nv.ma_cong_ty
-       JOIN toa_nha   tn ON tn.ma_toa_nha = vp.ma_toa_nha
-       JOIN khu_vuc_cham_cong kv ON kv.ma_van_phong = vp.ma_van_phong
+       LEFT JOIN LATERAL (
+         SELECT vp.ma_van_phong, vp.ten AS ten_van_phong,
+                vp.tang_bat_dau, vp.tang_ket_thuc,
+                tn.ma_toa_nha, tn.ten AS ten_toa_nha, tn.cao_do_nen, tn.so_tang, tn.chieu_cao_tang,
+                kv.ma_khu_vuc, kv.z_min, kv.z_max,
+                kv.dung_sai_ngang, kv.dung_sai_dung,
+                ST_AsGeoJSON(kv.da_giac_nen) AS da_giac_nen,
+                (SELECT count(*)::int FROM van_phong v2 JOIN khu_vuc_cham_cong k2
+                    ON k2.ma_van_phong = v2.ma_van_phong AND k2.dang_hieu_luc
+                  WHERE v2.ma_cong_ty = nv.ma_cong_ty) AS so_khoi_cua_cong_ty
+           FROM van_phong vp
+           JOIN toa_nha   tn ON tn.ma_toa_nha = vp.ma_toa_nha
+           JOIN khu_vuc_cham_cong kv ON kv.ma_van_phong = vp.ma_van_phong AND kv.dang_hieu_luc
+          WHERE vp.ma_cong_ty = nv.ma_cong_ty
+          ORDER BY vp.ma_van_phong
+          LIMIT 1
+       ) k ON true
       WHERE nv.ma_nhan_vien = $1`,
     [req.nguoiDung.ma_nhan_vien]
   );
   if (!rows.length) return res.status(404).json({ loi: "Không tìm thấy nhân viên" });
   res.json({ ...rows[0], vai_tro: req.nguoiDung.vai_tro });
+});
+
+/* ------------------------------------------------------------------ *
+ * Danh sách toà nhà để dựng mô hình 3D (LOD1 / LOD3)
+ * ------------------------------------------------------------------ */
+router.get("/toa-nha", canDangNhap, async (_req, res) => {
+  const { rows } = await q(
+    `SELECT tn.ma_toa_nha, tn.ten, tn.dia_chi, tn.cao_do_nen, tn.so_tang,
+            tn.chieu_cao_tang, tn.so_tang_de, tn.nguon_du_lieu,
+            ST_AsGeoJSON(tn.footprint) AS footprint
+       FROM toa_nha tn ORDER BY tn.ma_toa_nha`
+  );
+  res.json(rows);
+});
+
+/* ------------------------------------------------------------------ *
+ * Khối MAP trải ra theo mô hình SSM (BODY – FACE – NODE)
+ * ------------------------------------------------------------------ */
+router.get("/khu-vuc/:id/ssm", canDangNhap, async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ loi: "Mã khu vực không hợp lệ" });
+  const { rows } = await q(`SELECT * FROM ssm_cua_khoi($1) ORDER BY ma_face, thu_tu`, [id]);
+  if (!rows.length) return res.status(404).json({ loi: "Không tìm thấy khối MAP" });
+  const face = new Map();
+  const node = new Map();
+  for (const r of rows) {
+    if (!face.has(r.ma_face)) face.set(r.ma_face, { ma_face: r.ma_face, loai: r.loai_face, node: [] });
+    face.get(r.ma_face).node.push(r.ma_node);
+    node.set(r.ma_node, [r.x, r.y, r.z]);
+  }
+  // Dung lượng theo cách tính của môn: mã 4 byte, toạ độ 8 byte.
+  const soNode = node.size, soFace = face.size, soNodeOnFace = rows.length;
+  res.json({
+    ma_body: rows[0].ma_body,
+    so_node: soNode,
+    so_face: soFace,
+    so_node_on_face: soNodeOnFace,
+    dung_luong_byte: {
+      NODE: soNode * (4 + 3 * 8),
+      FACE: soFace * (4 + 4),
+      NODE_ON_FACE: soNodeOnFace * (4 + 4 + 4),
+      BODY: 4,
+      tong: soNode * 28 + soFace * 8 + soNodeOnFace * 12 + 4,
+    },
+    face: Array.from(face.values()),
+    node: Object.fromEntries(node),
+  });
 });
 
 /* ------------------------------------------------------------------ *
@@ -119,31 +176,47 @@ router.post("/cham-cong", canDangNhap, async (req, res) => {
   try {
     await client.query("BEGIN");
 
-    // --- khối MAP của nhân viên
+    // --- các khối MAP của công ty nhân viên (một công ty có thể thuê nhiều văn phòng)
     const kv = await client.query(
-      `SELECT kv.*, tn.cao_do_nen, tn.chieu_cao_tang
+      `SELECT kv.*, vp.tang_bat_dau, vp.ma_toa_nha, tn.cao_do_nen, tn.chieu_cao_tang
          FROM khu_vuc_cham_cong kv
          JOIN van_phong vp ON vp.ma_van_phong = kv.ma_van_phong
          JOIN nhan_vien nv ON nv.ma_cong_ty  = vp.ma_cong_ty
          JOIN toa_nha   tn ON tn.ma_toa_nha  = vp.ma_toa_nha
         WHERE nv.ma_nhan_vien = $1 AND kv.dang_hieu_luc
-        LIMIT 1`,
-      [maNV]
+        ORDER BY ST_Distance(kv.da_giac_nen::geography,
+                             ST_SetSRID(ST_MakePoint($2, $3), 4326)::geography),
+                 vp.ma_van_phong`,
+      [maNV, Number(kinh_do), Number(vi_do)]
     );
     if (!kv.rows.length) {
       await client.query("ROLLBACK");
       return res.status(400).json({ loi: "Nhân viên chưa được gán khu vực chấm công" });
     }
-    const khoi = kv.rows[0];
+    // Khối gần nhất theo mặt bằng; nếu công ty có nhiều khối trong cùng toà nhà
+    // thì sau khi biết cao độ sẽ chọn lại khối có dải cao độ gần nhất.
+    let khoi = kv.rows[0];
 
     // --- cao độ: ưu tiên giá trị thiết bị đo được, nếu không thì suy từ tầng khai báo
-    let z = cao_do;
+    let z = Number(cao_do);
     let nguon = nguon_cao_do === "THIET_BI" ? "THIET_BI" : "KHAI_BAO";
-    if (nguon === "KHAI_BAO" || z === null || z === undefined) {
+    if (nguon === "KHAI_BAO" || cao_do === null || cao_do === undefined || !Number.isFinite(z)) {
       const tang = Number(tang_khai_bao || khoi.tang_bat_dau || 1);
+      if (!Number.isFinite(tang)) {
+        await client.query("ROLLBACK");
+        return res.status(400).json({ loi: "Tầng khai báo không hợp lệ" });
+      }
       z = Number(khoi.cao_do_nen) + (tang - 0.5) * Number(khoi.chieu_cao_tang);
       nguon = "KHAI_BAO";
     }
+
+    // Trong cùng toà nhà, ưu tiên khối có dải cao độ gần z nhất — công ty
+    // thuê hai dải tầng xa nhau thì nhân viên ở dải nào cũng khớp đúng khối đó.
+    const lechZ = (k) => (z < Number(k.z_min) ? Number(k.z_min) - z
+      : z > Number(k.z_max) ? z - Number(k.z_max) : 0);
+    const cungToaNha = kv.rows.filter((k) => k.ma_toa_nha === khoi.ma_toa_nha);
+    cungToaNha.sort((a, b) => lechZ(a) - lechZ(b));
+    khoi = cungToaNha[0];
 
     // --- thiết bị
     let maThietBi = null;

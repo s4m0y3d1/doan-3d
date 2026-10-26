@@ -4,9 +4,19 @@
 --
 --  Chạy:  psql -U postgres -d chamcong3d -f db/schema.sql
 --  Yêu cầu: PostgreSQL >= 14, PostGIS >= 3.2
+--  Tạo: 14 bảng, 8 hàm, 4 trigger
 -- =====================================================================
 
 CREATE EXTENSION IF NOT EXISTS postgis;
+
+-- Ngày công, báo cáo tháng, lịch phân ca đều tính theo giờ Việt Nam. Nếu để
+-- mặc định UTC (như PostgreSQL trong Docker) thì bản ghi từ 0h–7h sáng bị tính
+-- sang ngày hôm trước. Áp dụng cho mọi phiên kết nối mới tới CSDL này.
+DO $$ BEGIN
+    EXECUTE format('ALTER DATABASE %I SET timezone TO %L',
+                   current_database(), 'Asia/Ho_Chi_Minh');
+END $$;
+SET timezone TO 'Asia/Ho_Chi_Minh';
 
 DROP TABLE IF EXISTS canh_bao_bat_thuong, don_giai_trinh, ban_ghi_cham_cong,
     phan_ca, ca_lam_viec, thiet_bi, nguoi_dung, vai_tro, nhan_vien, phong_ban,
@@ -39,7 +49,10 @@ CREATE TABLE toa_nha (
     cao_do_nen     NUMERIC(7,2) NOT NULL,          -- mét, so với mực nước biển
     so_tang        INT          NOT NULL CHECK (so_tang > 0),
     chieu_cao_tang NUMERIC(5,2) NOT NULL CHECK (chieu_cao_tang > 0),
-    nguon_du_lieu  VARCHAR(100)                    -- ví dụ: OSM way/306578560
+    so_tang_de     INT          NOT NULL DEFAULT 4 -- số tầng khối đế (dùng khi dựng LOD3)
+        CHECK (so_tang_de >= 0),
+    nguon_du_lieu  VARCHAR(100),                   -- ví dụ: OSM way/306578560
+    CONSTRAINT ck_tang_de CHECK (so_tang_de < so_tang)
 );
 CREATE INDEX idx_toa_nha_footprint ON toa_nha USING GIST (footprint);
 
@@ -274,3 +287,125 @@ $$ LANGUAGE plpgsql;
 CREATE TRIGGER tg_khu_vuc_cao_do
     BEFORE INSERT OR UPDATE ON khu_vuc_cham_cong
     FOR EACH ROW EXECUTE FUNCTION trg_dong_bo_cao_do();
+
+-- ---------------------------------------------------------------------
+-- Toàn vẹn khi sửa dữ liệu (chức năng thêm / sửa của quản trị viên)
+-- ---------------------------------------------------------------------
+
+-- Dải tầng của văn phòng phải nằm trong số tầng của toà nhà.
+CREATE OR REPLACE FUNCTION trg_kiem_tra_dai_tang() RETURNS TRIGGER AS $$
+DECLARE n INT;
+BEGIN
+    SELECT so_tang INTO n FROM toa_nha WHERE ma_toa_nha = NEW.ma_toa_nha;
+    IF NEW.tang_ket_thuc > n THEN
+        RAISE EXCEPTION 'Toà nhà chỉ có % tầng, không thể gán văn phòng tới tầng %',
+            n, NEW.tang_ket_thuc;
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER tg_van_phong_dai_tang
+    BEFORE INSERT OR UPDATE ON van_phong
+    FOR EACH ROW EXECUTE FUNCTION trg_kiem_tra_dai_tang();
+
+-- Đổi dải tầng của văn phòng thì khối MAP phải tính lại z_min / z_max.
+-- Đặt về NULL để trigger tg_khu_vuc_cao_do suy lại theo công thức.
+CREATE OR REPLACE FUNCTION trg_van_phong_tinh_lai_khoi() RETURNS TRIGGER AS $$
+BEGIN
+    UPDATE khu_vuc_cham_cong SET z_min = NULL, z_max = NULL
+     WHERE ma_van_phong = NEW.ma_van_phong;
+    RETURN NULL;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER tg_van_phong_tinh_lai_khoi
+    AFTER UPDATE OF tang_bat_dau, tang_ket_thuc, ma_toa_nha ON van_phong
+    FOR EACH ROW EXECUTE FUNCTION trg_van_phong_tinh_lai_khoi();
+
+-- Đổi cao độ nền / chiều cao tầng / số tầng của toà nhà: kiểm tra các văn
+-- phòng còn nằm trong toà nhà, rồi tính lại mọi khối MAP bên trong.
+CREATE OR REPLACE FUNCTION trg_toa_nha_tinh_lai_khoi() RETURNS TRIGGER AS $$
+DECLARE vp RECORD;
+BEGIN
+    SELECT ten, tang_ket_thuc INTO vp FROM van_phong
+     WHERE ma_toa_nha = NEW.ma_toa_nha AND tang_ket_thuc > NEW.so_tang
+     LIMIT 1;
+    IF FOUND THEN
+        RAISE EXCEPTION 'Văn phòng "%" đang dùng tới tầng %, không thể giảm số tầng xuống %',
+            vp.ten, vp.tang_ket_thuc, NEW.so_tang;
+    END IF;
+    UPDATE khu_vuc_cham_cong SET z_min = NULL, z_max = NULL
+     WHERE ma_van_phong IN (SELECT ma_van_phong FROM van_phong
+                             WHERE ma_toa_nha = NEW.ma_toa_nha);
+    RETURN NULL;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER tg_toa_nha_tinh_lai_khoi
+    AFTER UPDATE OF cao_do_nen, chieu_cao_tang, so_tang ON toa_nha
+    FOR EACH ROW EXECUTE FUNCTION trg_toa_nha_tinh_lai_khoi();
+
+-- =====================================================================
+--  BIỂU DIỄN KHỐI MAP THEO MÔ HÌNH SSM (Zlatanova, 2000)
+-- ---------------------------------------------------------------------
+--  Khối MAP lưu gọn dạng (P, z_min, z_max). Hàm này "trải" khối ra đúng
+--  cấu trúc logic của SSM: một BODY gồm các FACE phẳng có hướng, mỗi FACE
+--  là dãy NODE có thứ tự (NODE ON FACE, FACE IN BODY).
+--    - FACE 0       : mặt đáy (sàn tầng thấp nhất), z = z_min
+--    - FACE 1       : mặt nắp (trần tầng cao nhất),  z = z_max
+--    - FACE 2..n+1  : n mặt bên, mỗi mặt là tứ giác đứng
+--  Mỗi dòng trả về là một quan hệ NODE ON FACE kèm toạ độ NODE.
+-- =====================================================================
+CREATE OR REPLACE FUNCTION ssm_cua_khoi(p_ma_khu_vuc INT)
+RETURNS TABLE (ma_body INT, ma_face INT, loai_face TEXT,
+               thu_tu INT, ma_node INT, x DOUBLE PRECISION,
+               y DOUBLE PRECISION, z DOUBLE PRECISION) AS $$
+DECLARE
+    kv   khu_vuc_cham_cong%ROWTYPE;
+    vong GEOMETRY;
+    n    INT;
+    i    INT;
+BEGIN
+    SELECT * INTO kv FROM khu_vuc_cham_cong WHERE ma_khu_vuc = p_ma_khu_vuc;
+    IF NOT FOUND THEN RETURN; END IF;
+
+    -- vòng ngoài, bỏ điểm lặp cuối; định hướng ngược chiều kim đồng hồ
+    vong := ST_ExteriorRing(ST_ForcePolygonCCW(kv.da_giac_nen));
+    n := ST_NPoints(vong) - 1;
+    ma_body := kv.ma_khu_vuc;
+
+    -- NODE đánh số: 1..n ở đáy, n+1..2n ở nắp
+    -- Mặt đáy nhìn từ dưới lên nên đi theo chiều kim đồng hồ (pháp tuyến hướng xuống)
+    FOR i IN 1..n LOOP
+        ma_face := 0; loai_face := 'DAY'; thu_tu := i;
+        ma_node := n - i + 1;
+        x := ST_X(ST_PointN(vong, ma_node)); y := ST_Y(ST_PointN(vong, ma_node));
+        z := kv.z_min;
+        RETURN NEXT;
+    END LOOP;
+    FOR i IN 1..n LOOP
+        ma_face := 1; loai_face := 'NAP'; thu_tu := i;
+        ma_node := n + i;
+        x := ST_X(ST_PointN(vong, i)); y := ST_Y(ST_PointN(vong, i));
+        z := kv.z_max;
+        RETURN NEXT;
+    END LOOP;
+    -- Mặt bên thứ i nối cạnh (i, i+1) của đáy với cạnh tương ứng của nắp
+    FOR i IN 1..n LOOP
+        ma_face := i + 1; loai_face := 'BEN';
+        thu_tu := 1; ma_node := i;
+        x := ST_X(ST_PointN(vong, i)); y := ST_Y(ST_PointN(vong, i)); z := kv.z_min;
+        RETURN NEXT;
+        thu_tu := 2; ma_node := (i % n) + 1;
+        x := ST_X(ST_PointN(vong, ma_node)); y := ST_Y(ST_PointN(vong, ma_node)); z := kv.z_min;
+        RETURN NEXT;
+        thu_tu := 3; ma_node := n + (i % n) + 1;
+        x := ST_X(ST_PointN(vong, (i % n) + 1)); y := ST_Y(ST_PointN(vong, (i % n) + 1)); z := kv.z_max;
+        RETURN NEXT;
+        thu_tu := 4; ma_node := n + i;
+        x := ST_X(ST_PointN(vong, i)); y := ST_Y(ST_PointN(vong, i)); z := kv.z_max;
+        RETURN NEXT;
+    END LOOP;
+END;
+$$ LANGUAGE plpgsql STABLE;

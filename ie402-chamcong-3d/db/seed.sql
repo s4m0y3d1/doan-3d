@@ -71,25 +71,25 @@ INSERT INTO phong_ban (ma_cong_ty, ten_phong_ban) VALUES
 
 INSERT INTO nhan_vien (ma_nhan_vien, ma_cong_ty, ma_phong_ban, ho_ten, email)
 VALUES
-    (1, 1, 1, 'Nguyễn Văn An',   'an.nv@alphatech.vn'),
-    (2, 1, 2, 'Trần Thị Bình',   'binh.tt@alphatech.vn'),
-    (3, 2, 3, 'Lê Minh Cường',   'cuong.lm@betafinance.vn'),
-    (4, 3, 4, 'Phạm Thu Dung',   'dung.pt@gammamedia.vn');
+    (1, 1, 1, 'Nguyễn Minh Khôi',   'khoi.nm@alphatech.vn'),
+    (2, 1, 2, 'Võ Thành Nhân',   'nhan.vt@alphatech.vn'),
+    (3, 2, 3, 'Nguyễn Tường Vy',   'vy.nt@betafinance.vn'),
+    (4, 3, 4, 'Nguyễn Hữu Tín',   'tin.nh@gammamedia.vn');
 SELECT setval('nhan_vien_ma_nhan_vien_seq', 4);
 
 -- mật khẩu mẫu "123456", băm bằng bcrypt (cost 10) — sinh bằng:
 --   cd server && npm run hash
 INSERT INTO nguoi_dung (ma_nhan_vien, ma_vai_tro, ten_dang_nhap, mat_khau_bam) VALUES
-    (1, 1, 'an.nv',   '$2a$10$Bq..k6/C0RGCKCBql.SDR.MqfRwEOIJlT23pB7Zdo3d3U2cMNUhHm'),
-    (2, 2, 'binh.tt', '$2a$10$Bq..k6/C0RGCKCBql.SDR.MqfRwEOIJlT23pB7Zdo3d3U2cMNUhHm'),
-    (3, 1, 'cuong.lm','$2a$10$Bq..k6/C0RGCKCBql.SDR.MqfRwEOIJlT23pB7Zdo3d3U2cMNUhHm'),
-    (4, 3, 'dung.pt', '$2a$10$Bq..k6/C0RGCKCBql.SDR.MqfRwEOIJlT23pB7Zdo3d3U2cMNUhHm');
+    (1, 1, 'khoi.nm',   '$2a$10$Bq..k6/C0RGCKCBql.SDR.MqfRwEOIJlT23pB7Zdo3d3U2cMNUhHm'),
+    (2, 2, 'nhan.vt', '$2a$10$Bq..k6/C0RGCKCBql.SDR.MqfRwEOIJlT23pB7Zdo3d3U2cMNUhHm'),
+    (3, 1, 'vy.nt','$2a$10$Bq..k6/C0RGCKCBql.SDR.MqfRwEOIJlT23pB7Zdo3d3U2cMNUhHm'),
+    (4, 3, 'tin.nh', '$2a$10$Bq..k6/C0RGCKCBql.SDR.MqfRwEOIJlT23pB7Zdo3d3U2cMNUhHm');
 
 INSERT INTO thiet_bi (ma_nhan_vien, dinh_danh_thiet_bi, he_dieu_hanh, duoc_tin_cay) VALUES
-    (1, 'dev-an-001',   'Android 14', TRUE),
-    (2, 'dev-binh-001', 'iOS 17',     TRUE),
-    (3, 'dev-cuong-001','Android 13', TRUE),
-    (4, 'dev-dung-001', 'iOS 18',     TRUE);
+    (1, 'dev-khoi-001',   'Android 14', TRUE),
+    (2, 'dev-nhan-001', 'iOS 17',     TRUE),
+    (3, 'dev-vy-001','Android 13', TRUE),
+    (4, 'dev-tin-001', 'iOS 18',     TRUE);
 
 INSERT INTO ca_lam_viec (ma_ca, ten_ca, gio_vao, gio_ra, tre_toi_da_phut)
 VALUES
@@ -127,3 +127,12 @@ SELECT 'TH3 ngoài toà nhà' AS tinh_huong,
 SELECT v.ten, k.z_min, k.z_max
 FROM khu_vuc_cham_cong k JOIN van_phong v USING (ma_van_phong)
 ORDER BY k.z_min;
+
+-- (5) Khối MAP của Alpha Tech trải ra theo mô hình SSM: số FACE và số quan hệ
+--     NODE ON FACE theo từng loại mặt (dùng cho phần tính dung lượng ở báo cáo).
+SELECT loai_face,
+       count(DISTINCT ma_face) AS so_face,
+       count(*)                AS so_node_on_face
+FROM ssm_cua_khoi(1)
+GROUP BY loai_face
+ORDER BY min(ma_face);

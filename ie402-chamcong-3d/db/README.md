@@ -7,11 +7,17 @@ không còn là mã "trên giấy".
 
 | Hạng mục | Kết quả |
 |---|---|
-| `schema.sql` | Chạy hết, thoát mã 0 — tạo **14 bảng**, 4 hàm, 1 trigger |
+| `schema.sql` | Chạy hết, thoát mã 0 — tạo **14 bảng**, 8 hàm, 4 trigger |
 | `seed.sql` | Chạy hết, thoát mã 0 |
 | Trigger suy cao độ | Alpha 23,60→42,20 · Beta 93,35→116,60 · Gamma 163,10→191,00 m — khớp đúng công thức trong báo cáo |
 | `kiem_tra_bao_ham()` | TH1 đúng tầng → `HOP_LE` · TH2 sai tầng → `NGHI_NGO` · TH3 ngoài toà nhà → `NGOAI_VUNG` |
 | `kiem_tra_r2()` | Chấm công lại sau 3 phút cách 200 km → `true` (bất thường) · cùng toạ độ → `false` |
+| Trigger dải tầng | Văn phòng tới tầng 50 trong toà 42 tầng → lỗi *"Toà nhà chỉ có 42 tầng…"*; giảm số tầng toà nhà dưới tầng văn phòng đang dùng → lỗi |
+| Trigger tính lại khối | Sửa tầng kết thúc Alpha 8 → 10: khối 23,60–42,20 → 23,60–51,50 m; sửa chiều cao tầng 4,65 → 5 m: cả ba khối tự tính lại |
+| `ssm_cua_khoi()` | Khối Alpha (đáy 18 đỉnh) → 1 FACE đáy + 1 FACE nắp + 18 FACE bên, 108 quan hệ NODE ON FACE |
+
+Đã chạy lại trên **PostgreSQL 17.5 + PostGIS 3.5** (Docker `postgis/postgis:17-3.5`,
+Linux) qua `./chay-demo.sh` — kết quả giống hệt.
 
 Kết quả của ba tình huống trùng khớp với bản cài đặt bằng JavaScript trong
 `prototype/index.html`, xác nhận hai bên cùng một thuật toán.
