@@ -1,254 +1,167 @@
 # Kịch bản thuyết trình — Đồ án IE402
 
-**Đề tài:** Hệ thống chấm công định vị theo mô hình khối không gian 3 chiều phân tầng
-**Nhóm 1** · GVHD: ThS. Phan Thanh Vũ · 43 slide · ≈ 30 phút
+> Sinh tự động từ `tools/thuyet-trinh/noi-dung.json` — sửa nội dung ở tệp đó rồi chạy `npm run build` trong `tools/thuyet-trinh/` để cập nhật cả slide (ghi chú), bản PDF và tệp này.
 
-> Bản dài (lời thoại đầy đủ từng câu) nằm trong lịch sử git, commit `ad86a59`.
+**Hệ thống chấm công định vị 3D theo mô hình khối không gian phân tầng** · IE402 — Hệ thống thông tin địa lý 3 chiều · GVHD ThS. Phan Thanh Vũ
 
----
+## Lời nói theo từng slide
 
-## Phân công
+### Slide 1 · Trang bìa — Khôi (~0:45)
 
-| Lượt | Người | Slide | Nội dung | Phút |
-|---|---|---|---|---|
-| 1 | **Khôi** | 1 – 9 | Mở đầu · Đặt vấn đề | 6 |
-| 2 | **Tín** | 10 – 17 | Lý thuyết · Mô hình MAP · Thuật toán | 6 |
-| 3 | **Nhân** | 18 – 29 | Thiết kế · CSDL · API · Bảo mật | 7½ |
-| 4 | **Vy** | 30 – 37 | Kết quả thực nghiệm | 3 |
-| 5 | **Vy** | — | **DEMO TRỰC TIẾP** | 4 |
-| 6 | **Tín** | 38 – 40 | Kết luận · Phân công | 1½ |
-| 7 | **Khôi** | 41 | Phụ lục bản đồ TP.HCM | ¾ |
-| 8 | **Nhân** | 42 | Câu hỏi đã chuẩn bị | ¾ |
-| 9 | **Vy** | 43 | Cảm ơn | ½ |
+Em chào thầy và các bạn. Nhóm 1 xin trình bày đồ án “Hệ thống chấm công định vị 3D theo mô hình khối không gian phân tầng”. Nhóm gồm bốn thành viên: Tín là nhóm trưởng phụ trách mô hình dữ liệu, Nhân phụ trách máy chủ, em là Khôi phụ trách bản đồ 3D, và Vy phụ trách giao diện và kiểm thử. Phần trình bày khoảng mười tám phút, kèm năm phút demo trực tiếp.
 
-Chia theo đúng vai trò trong slide 40: Tín = mô hình dữ liệu, Nhân = máy chủ, Khôi = bản đồ 3D, Vy = giao diện + kiểm thử.
+### Slide 2 · Vấn đề: hàng rào 2D không biết bạn ở tầng nào — Khôi (~1:15)
 
-### ⚠️ Sửa slide trước khi bảo vệ
+Các ứng dụng chấm công bằng GPS hiện nay dùng hàng rào địa lý hai chiều: chỉ kiểm tra điểm có nằm trong đa giác văn phòng hay không. Trong một cao ốc như IFC One Saigon — 42 tầng, nhiều công ty thuê cùng lúc — nhân viên ở tầng 5 và tầng 22 có cùng kinh độ, cùng vĩ độ. Hàng rào 2D sẽ chấp nhận cả hai. Nói cách khác, nhân viên Alpha Tech ngồi ở văn phòng công ty khác vài chục tầng phía trên vẫn được ghi công hợp lệ. Vấn đề nằm ở chính mô hình dữ liệu: thiếu chiều cao.
 
-1. **Slide 1** — còn `Thành viên A · B · C · D`, thay bằng tên thật.
-2. **Slide 40** — nhãn A/B/C/D → A = Tín, B = Nhân, C = Khôi, D = Vy.
-3. **Slide 27** — ghi "13 điểm cuối API", thực tế đã là **16** (thêm 3 endpoint xuất CSV). Không kịp sửa thì Nhân đính chính bằng miệng.
+### Slide 3 · Mục tiêu đề tài — Khôi (~0:50)
 
----
+Từ đó nhóm đặt ba mục tiêu. Một, chuyển phép kiểm tra từ “điểm thuộc đa giác” sang “điểm thuộc khối” để xác thực được tầng. Hai, phát hiện bất thường bằng bốn quy tắc R1 đến R4 thay vì chỉ trả lời đúng hoặc sai. Ba, đáp ứng yêu cầu của môn: quản lý thêm, sửa, xoá, thống kê dữ liệu và hiển thị trên bản đồ 3D mức chi tiết 3. Em xin mời Tín trình bày phần mô hình.
 
-# KHÔI · Slide 1 – 9
+### Slide 4 · Phần 01 — Phân tích và mô hình hoá — Tín (~0:10)
 
-**1. Bìa** — Chào thầy và các bạn. Nhóm 1 trình bày đề tài *hệ thống chấm công định vị theo mô hình khối không gian ba chiều phân tầng*; nhóm đặt tên mô hình là **MAP — Multi-floor Attendance Prism**. Câu hỏi của đồ án: khi hàng rào địa lý 2D không còn đủ thì thay bằng gì.
+Phần một: phân tích và mô hình hoá.
 
-**2. Nội dung** — Năm phần: đặt vấn đề, mô hình MAP, thiết kế và cài đặt, kết quả kèm demo trực tiếp, kết luận. Nếu thầy chỉ nhớ một điều, xin nhớ dòng này: **"đúng toà nhà, sai tầng"** — trạng thái mà mô hình 2D không sinh ra được.
+### Slide 5 · So sánh các mô hình dữ liệu 3D — Tín (~1:20)
 
-**3. Chương 01** — Phần một: Tổng quan và đặt vấn đề. *(chuyển nhanh)*
+Theo bài giảng, có bốn hướng biểu diễn đối tượng 3D: B-REP, voxel, CSG và tổ hợp. Bài toán của nhóm chỉ cần biểu diễn khối văn phòng — một lăng trụ đứng có đáy là mặt sàn được thuê. Nhóm so sánh các mô hình đã học. 3D-FDS phải lưu cả ARC và EDGE, thừa so với nhu cầu. UDM phải tam giác hoá mặt đáy, mà footprint thật thường lõm. Voxel tốn bộ nhớ và biên bị răng cưa. CSG không biểu diễn được footprint bất quy tắc. SSM của Zlatanova chỉ cần hai nguyên tố NODE và FACE, và được thiết kế cho GIS 3D trên nền web — đúng môi trường của đề tài.
 
-**4. Bối cảnh** — Hầu hết app chấm công ở Việt Nam dựng trên một kỹ thuật duy nhất: hàng rào địa lý 2D, trả lời đúng một câu hỏi *"có nằm trong vùng trên mặt phẳng không"*. Toà nhà thử nghiệm có **42 tầng**, **3 văn phòng** ở ba dải tầng, nhưng chỉ **1 cặp toạ độ** — vì chúng chồng lên nhau. Trong khi đó PostGIS đã hỗ trợ toạ độ Z từ lâu, ArcGIS dựng được khối 3D trên trình duyệt. Khoảng cách giữa công nghệ sẵn có và cách người ta đang làm chính là khoảng trống của đồ án.
+### Slide 6 · Lựa chọn: SSM làm mô hình logic — Tín (~1:15)
 
-**5. Bốn hạn chế** — (a) Không phân biệt chiều cao: người ngồi quán cà phê tầng trệt vẫn chấm hợp lệ cho văn phòng tầng 22. (b) Sai số GPS đô thị: hiệu ứng urban canyon, sai số hàng chục mét. (c) Không phát hiện gian lận theo chiều đứng: dữ liệu 2D không lưu độ cao nên không còn gì để rà soát. (d) Không trực quan hoá để đối chiếu. **Cả bốn đều từ một nguyên nhân: phép kiểm tra chạy trên hình chiếu xuống mặt phẳng.** Sửa nguyên nhân đó thì cả bốn cùng được giải.
+Hình bên trái là lược đồ SSM áp vào khối MAP: một BODY là một văn phòng, các FACE thuộc BODY, các NODE có thứ tự trên FACE. Hình bên phải là cách đánh số: n NODE ở đáy, n NODE ở nắp, một FACE đáy, một FACE nắp và n mặt bên. Nhóm có một điều chỉnh: SSM gốc yêu cầu FACE lồi, nhưng footprint của IFC One Saigon có 18 đỉnh và mặt cong, nên nhóm nới lỏng ràng buộc lồi cho mặt đáy và mặt nắp. Các mặt bên luôn là tứ giác lồi.
 
-**6. Minh hoạ** — Ba nhân viên, ba tầng, hình chiếu trùng khít một điểm. Hàng rào 2D nói cả ba hợp lệ. Mô hình khối tách được, và sinh trạng thái thứ ba: **NGHI NGỜ**.
+### Slide 7 · Dung lượng dữ liệu — Tín (~1:00)
 
-**7. Ý tưởng cốt lõi** — Chuyển từ **"điểm thuộc đa giác"** sang **"điểm thuộc khối"**; từ 2 chiều 2 trạng thái sang 3 chiều 3 trạng thái. *Học thuật:* LoD1 đã đủ giải bài toán, không cần BIM hay quét laser. *Ứng dụng:* chi phí số hoá rất thấp — chỉ cần mặt bằng OSM, số tầng, chiều cao tầng. *Thiết kế:* hệ thống trung thực về giới hạn của mình — không đủ căn cứ thì nói "nghi ngờ" và chuyển cho con người.
+Tính dung lượng theo cách của tài liệu ví dụ môn học — mã định danh bốn byte, toạ độ tám byte. Một hình hộp chữ nhật lưu theo SSM tốn 564 byte. Khối của Alpha Tech, đáy 18 đỉnh, tốn 2.468 byte — số này lấy trực tiếp từ hàm ssm_cua_khoi trong CSDL. Nhưng vì khối là lăng trụ đứng, mọi NODE và FACE đều suy ra được từ bộ đa giác đáy, z min, z max. Nên ở mức vật lý nhóm chỉ lưu bộ đó, khoảng 340 byte — nhỏ hơn khoảng bảy lần — và trải ra SSM khi cần.
 
-**8. Sáu mục tiêu** — M1 mô hình 3D, M2 thuật toán 3 trạng thái dưới 200 ms, M3 web ba vai trò, M4 trực quan hoá, M5 bốn quy tắc bất thường, M6 cấu hình khối từ dữ liệu toà nhà. Mỗi mục tiêu có tiêu chí đo được. Kết quả: **5/6 đạt, M6 đạt một phần** — nhóm sẽ nói rõ ở cuối.
+### Slide 8 · Mô hình MAP — khối chấm công phân tầng — Tín (~1:30)
 
-**9. Phạm vi** — *Trong:* IFC One Saigon 42 tầng, ba văn phòng dải 5–8 / 20–24 / 35–40, mức LoD1, nguồn độ cao hỗn hợp, web cục bộ. *Ngoài:* Wi-Fi/BLE indoor, app di động gốc, sinh trắc học, chống fake GPS cấp OS, triển khai đám mây HTTPS. Nêu giới hạn từ đầu cũng là một phần kết quả — nó cho biết cần bổ sung gì để đi tiếp. **Xin mời bạn Tín.**
+Từ SSM, nhóm chuyên biệt hoá thành mô hình MAP gồm năm thành phần: đa giác nền P, cao độ z min và z max, dung sai ngang delta xy và dung sai đứng delta z. Cao độ không nhập tay mà suy ra từ dải tầng bằng trigger: z min bằng cao độ nền cộng số tầng phía dưới nhân chiều cao tầng. Phép kiểm tra có hai bước rẻ: điểm có nằm trong đa giác đã nới biên không, rồi cao độ có nằm trong dải đã nới biên không. Kết quả là ba trạng thái. Trạng thái giữa — NGHI NGỜ, đúng toà nhà nhưng sai tầng — chính là trạng thái mà mô hình hai chiều không thể sinh ra. Em xin mời Nhân.
 
----
+### Slide 9 · Bốn quy tắc phát hiện bất thường — Nhân (~1:00)
 
-# TÍN · Slide 10 – 17
+Ngoài trạng thái, mỗi lần chấm công được áp bốn quy tắc. R1 sai tầng: báo độ lệch cao độ và quy ra số tầng. R2 dịch chuyển bất khả thi: vận tốc suy ra giữa hai lần chấm công liên tiếp vượt 150 km/h, viết bằng hàm trong PostGIS. R3 độ chính xác bất thường: dưới một mét thì nghi giả lập GPS, trên một trăm mét thì không đủ tin cậy. R4 trùng thiết bị: cùng một thiết bị mà nhiều nhân viên chấm công trong mười phút.
 
-**10. Chương 02** — Cơ sở lý thuyết và mô hình MAP.
+### Slide 10 · Sơ đồ quan hệ thực thể — Tín (~0:50)
 
-**11. Chọn mô hình 3D** — Nhóm khảo sát năm cách: khối đùn 2.5D, B-Rep, CSG, Voxel, TIN. Chọn **khối đùn** vì bốn lý do: bài toán chỉ cần trả lời một câu hỏi bao hàm; tách được thành hai bước rẻ — ray casting O(n) cộng một phép so sánh số thực; dữ liệu đầu vào có sẵn (mặt bằng OSM + số tầng + chiều cao tầng); và PostGIS lẫn ArcGIS đều hỗ trợ trực tiếp. Đúng bằng mức **LoD1** của CityGML.
+Sơ đồ ERD gồm bốn nhóm: tổ chức, không gian gồm toà nhà, văn phòng và khối chấm công, nhân sự, và nghiệp vụ chấm công. Lược đồ PostGIS có 14 bảng, 8 hàm và 4 trigger. Các ràng buộc nghiệp vụ như văn phòng không được vượt số tầng toà nhà, hay tự tính lại cao độ khối khi sửa tầng, đều đặt trong CSDL — nên dù sửa bằng giao diện hay bằng SQL cũng không lọt. Em xin mời Nhân tiếp tục.
 
-**12. Bài toán khó nhất: độ cao** — Ba ràng buộc: độ chính xác đứng kém hơn ngang **2–3 lần**; trong nhà `altitude` thường null hoặc sai số hàng chục mét; và **chỉ 3,7 %** công trình OSM có thuộc tính height. Giải pháp là **nguồn độ cao hỗn hợp** — ưu tiên thiết bị đo khi `altitudeAccuracy` < 15 m, ngoài ngưỡng thì suy từ tầng khai báo theo **z = z_nền + (tầng − 0,5) × h_tầng**. Hệ số 0,5 đặt điểm giữa tầng để sai số phân bố đều hai phía. Quan trọng nhất: **nguồn độ cao được ghi thẳng vào bản ghi**, nên mỗi bản ghi tự nói được nó đáng tin tới đâu.
+### Slide 11 · Use case và luồng chấm công — Nhân (~1:00)
 
-**13. Ba hướng xác định tầng** — Khí áp kế: phân giải ~1 m nhưng trôi theo thời tiết. Wi-Fi/BLE: chính xác tốt nhưng phải lắp đặt và khảo sát từng toà nhà. **Hướng của đồ án là thứ ba — mô hình không gian: không cải thiện phép đo, mà cải thiện cái mô hình mà phép đo được đối chiếu vào.** Ba hướng bổ sung nhau chứ không loại trừ; MAP nhận độ cao từ bất kỳ nguồn nào, miễn nguồn đó được ghi lại.
+Hệ thống có ba tác nhân: nhân viên chấm công và gửi giải trình, quản lý xử lý cảnh báo và duyệt đơn, quản trị viên quản lý dữ liệu nền. Sơ đồ trình tự bên phải là luồng chấm công: trình duyệt gửi toạ độ và tầng, máy chủ gọi hàm kiểm tra bao hàm trong CSDL, áp R1 đến R4 rồi ghi bản ghi và cảnh báo trong cùng một giao dịch — lỗi ở bước nào thì huỷ toàn bộ.
 
-**14. Mô hình MAP** — **MAP = ( P, z_min, z_max, δxy, δz )**. P là đa giác nền WGS84; z_min sàn tầng thấp nhất; z_max trần tầng cao nhất; δxy dung sai ngang mặc định 25 m; δz dung sai đứng mặc định 5 m. Khi kiểm tra dùng khối đã nới biên **MAP⁺**. **Hai thành phần dung sai chính là điểm khác biệt giữa MAP và khối đùn thường** — chúng biến khối cứng thành khối có biên mềm, phản ánh đúng bản chất phép đo GPS: kết quả không phải một điểm mà là một vùng xác suất.
+### Slide 12 · Phần 02 — Thiết kế ứng dụng — Nhân (~0:10)
 
-**15. Suy cao độ từ dải tầng** — Quản trị viên **không nhập z_min/z_max** (dễ sai), họ nhập dải tầng trong hợp đồng thuê; một trigger tự suy: `z_min = z_nền + (tầng_đầu − 1) × h_tầng`, `z_max = z_nền + tầng_cuối × h_tầng`. Với nền 5 m và tầng 4,65 m: Alpha 23,60–42,20 · Beta 93,35–116,60 · Gamma 163,10–191,00. **Ba khối có đa giác nền trùng khít, chỉ khác dải cao độ** — với hệ 2D đây là *một* vùng duy nhất.
+Phần hai: thiết kế ứng dụng.
 
-**16. Phép kiểm tra bao hàm** — Điểm nằm trong khối khi hình chiếu ngang nằm trong đa giác đã buffer **và** cao độ nằm trong dải đã nới biên. Ba kết quả: **HỢP LỆ** (thoả cả hai), **NGHI NGỜ** (thoả ngang, sai đứng — hoặc độ chính xác quá kém), **NGOÀI VÙNG** (sai ngang). Trạng thái ở giữa là thứ mô hình 2D **không thể sinh ra** — vì nó định nghĩa bằng một điều kiện đứng mà hệ 2D không có dữ liệu để kiểm tra.
+### Slide 13 · Kiến trúc và công nghệ — Nhân (~1:00)
 
-**17. Bốn quy tắc R1–R4** — **R1** sai tầng (CAO): lệch khỏi dải quá δz, **quy đổi ra số tầng** cho quản lý dễ hình dung. **R2** dịch chuyển bất khả thi (CAO): vận tốc giữa hai bản ghi vượt 150 km/h. **R3** độ chính xác bất thường (TB): < 1 m nghi fake GPS, > 100 m không đủ tin. **R4** trùng thiết bị (TB): nhiều nhân viên cùng một thiết bị trong 10 phút. Xin nói rõ ngay: **bốn quy tắc không loại trừ gian lận, chỉ làm tăng chi phí gian lận.** **Xin mời bạn Nhân.**
+Kiến trúc ba lớp. Trình duyệt dùng ArcGIS Maps SDK 4.29 — đúng công nghệ hai bài lab — và JavaScript thuần, không cần bước build. Máy chủ Node.js với Express 5 lo xác thực JWT, phân quyền ba vai trò và toàn bộ API. Logic không gian nằm trong PostgreSQL và PostGIS. Cả hệ thống chạy trên một cổng duy nhất, vì Geolocation API chỉ cấp quyền định vị trên HTTPS hoặc localhost. Em xin mời Khôi trình bày phần bản đồ.
 
----
+### Slide 14 · LOD1 để tính toán, LOD3 để hiển thị — Khôi (~1:10)
 
-# NHÂN · Slide 18 – 29
+Yêu cầu của môn là bản đồ 3D mức chi tiết 3. Nhóm dùng hai mức cho hai mục đích. Bên phải là LOD1 — khối đùn trơn — đúng với mô hình tính toán, vì chi tiết mặt dựng không làm thay đổi kết quả kiểm tra. Bên trái là LOD3: khối đế, vách kính, dầm từng tầng, khung nhôm đứng, lối vào và mái. Lồng bên trong là ba khối MAP: cam là Alpha Tech, xanh là Beta Finance, tím là Gamma Media. Trên bản đồ có nút chuyển qua lại giữa hai mức.
 
-**18. Chương 03** — Phân tích, thiết kế và cài đặt.
+### Slide 15 · Thành phần LOD3 theo CityGML — Khôi (~0:55)
 
-**19. Yêu cầu** — 13 yêu cầu chức năng: nhân viên F01–F08, quản lý F09–F12, quản trị F13. Bảy yêu cầu phi chức năng, ba cái quan trọng nhất: **N02** bản ghi và cảnh báo trong cùng một giao dịch; **N06** logic kiểm tra đặt trong CSDL; **N01** phản hồi dưới 200 ms.
+Mô hình LOD3 không dựng tay mà sinh tự động từ dữ liệu trong CSDL: footprint, cao độ nền, số tầng, chiều cao tầng và số tầng khối đế. Mỗi thành phần gắn một lớp ngữ nghĩa CityGML: tường là WallSurface, kính là Window, cửa là Door, mái là RoofSurface, còn khung nhôm, mái sảnh, thiết bị kỹ thuật là BuildingInstallation. Bấm vào thành phần nào trên bản đồ cũng hiện đúng lớp của nó. Thêm một toà nhà mới là tự có mô hình LOD3. Em xin mời Vy.
 
-**20. Use case** — Bốn nhóm tác nhân. Nhóm thứ tư là **dịch vụ nội bộ**: UC12 kiểm tra bao hàm và UC13 áp quy tắc — hai use case này **luôn được UC2 include và không tác nhân nào gọi trực tiếp được**. Đó là quyết định thiết kế có chủ đích: không lối vào nào tạo được bản ghi chưa qua kiểm tra.
+### Slide 16 · Quản trị: thêm, sửa, xoá dữ liệu nền — Vy (~1:00)
 
-**21. DFD mức 0 và 1** — Mức 0 có bốn tác nhân ngoài, trong đó **dịch vụ định vị của thiết bị** hay bị bỏ sót nhưng là nguồn của toàn bộ dữ liệu toạ độ. Mức 1 phân rã thành **bảy tiến trình, sáu kho dữ liệu**.
+Đây là tab Quản trị, đáp ứng yêu cầu thêm, sửa, xoá và thống kê của môn. Quản trị viên quản lý sáu loại dữ liệu: toà nhà, văn phòng và khối MAP, nhân viên kèm tài khoản, ca làm việc, công ty, phòng ban. Mặt bằng toà nhà và khối MAP được vẽ trực tiếp trên bản đồ 3D, và khối được xem trước ngay khi nhập dải tầng. Nhập vượt số tầng thì khối báo đỏ và CSDL từ chối khi lưu.
 
-**22. DFD mức 2 + sơ đồ trình tự** — Ba ý: **thứ tự có chủ đích** — kiểm ngang trước, đã ngoài vùng thì khỏi xét cao độ, chi phí thấp nhất. **Ba nhánh** ánh xạ thẳng sang mã HTTP: 200 hợp lệ, 202 chờ xác minh, 422 ngoài vùng. **Nguồn cao độ tách bạch** ở tiến trình 3.2 và được ghi vào bản ghi.
+### Slide 17 · Phần 03 — Kết quả — Vy (~0:10)
 
-**23. Kiến trúc ba lớp** — *Trình bày:* JS thuần + ArcGIS SDK 4.29 + Geolocation API — lớp này **không tự kết luận gì về tính hợp lệ**. *Ứng dụng:* Node.js + Express + JWT + bcrypt. *Dữ liệu:* PostgreSQL 17 + PostGIS 3.6, chứa luôn hàm nghiệp vụ không gian. Đặt thuật toán trong CSDL để có **đúng một cài đặt duy nhất** — gọi từ API, từ script hay từ psql đều qua cùng một hàm.
+Phần ba: kết quả.
 
-**24. Lược đồ CSDL** — **14 bảng · 4 hàm · 1 trigger · 4 chỉ mục GiST**. Bốn hàm: `tinh_dai_cao_do()`, `kiem_tra_bao_ham()`, `kiem_tra_r2()`, và trigger `trg_dong_bo_cao_do()`. *(Nếu hỏi 14 hay 15: `spatial_ref_sys` là bảng hệ thống của PostGIS, nhóm đã kiểm bằng `pg_class` và loại ra.)*
+### Slide 18 · Ba tình huống kiểm thử — Vy (~1:10)
 
-**25. Hàm kiem_tra_bao_ham()** — Mã thật, không phải mã giả. Bước 1 điều kiện ngang bằng `ST_DWithin` **trên kiểu geography** — chi tiết này quyết định tính đúng đắn, vì nó cho dung sai tính **bằng mét trên ellipsoid** chứ không phải bằng độ; để kiểu geometry thì 25 "đơn vị" thành 25 độ, sai hoàn toàn. Bước 2 điều kiện đứng → `NGHI_NGO`. Bước 3 chốt chặn độ chính xác: sai số lớn hơn gấp đôi dung sai thì kết quả "nằm trong vùng" **không còn mang thông tin** — có thể đúng do may mắn.
+Ba tình huống trên toà nhà thật. Một, nhân viên Alpha Tech chấm công ở tầng 6: cả 3D và 2D đều hợp lệ. Hai, cùng toạ độ đó nhưng ở tầng 22: hàng rào 2D vẫn kết luận hợp lệ — bỏ sót — trong khi hệ thống của nhóm trả về NGHI NGỜ, lệch 62,78 mét, tương đương 13,5 tầng. Ba, đứng cách toà nhà vài trăm mét: cả hai đều ngoài vùng. Tình huống thứ hai là kết quả quan trọng nhất của đồ án.
 
-**26. Một lượt chấm công** — Sáu bước trong **một giao dịch duy nhất**: kiểm đầu vào → tra khối MAP → xác định cao độ → kiểm bao hàm → áp R1–R4 → ghi và phản hồi. Lỗi bất kỳ bước nào thì huỷ toàn bộ. Ý quan trọng nhất: **hệ thống phải giải thích được kết luận của mình** — phản hồi gồm khoảng cách ngang, cao độ và **nguồn** của nó, dải khối, hai dung sai, độ lệch, và danh sách cảnh báo. Lát nữa thầy sẽ thấy đúng những con số này trong demo.
+### Slide 19 · Màn hình tình huống sai tầng — Vy (~0:45)
 
-**27. API** — Slide ghi mười ba, nhưng sau khi in slide nhóm bổ sung **ba điểm cuối xuất CSV**, tổng hiện tại là **mười sáu**. `POST /api/cham-cong` là nơi tập trung toàn bộ nghiệp vụ.
+Đây là màn hình thật của tình huống hai. Thầy để ý tấm sàn tầng đang chọn đã nằm hẳn trong dải xanh của Beta Finance, xa dải cam của Alpha Tech. Kết quả không chỉ nói là sai, mà nói sai bao nhiêu tầng, kèm cảnh báo R1 mức cao để quản lý xử lý.
 
-**28. Bảo mật** — Ba lớp: **xác thực** (bcrypt + JWT hạn 8 giờ); **phân quyền vai trò** (middleware riêng, nhân viên gọi endpoint quản lý nhận 403 — đã thử thật); **kiểm soát quyền sở hữu** — lớp hay bị bỏ — truy vấn lịch sử lọc theo mã nhân viên **lấy từ thẻ JWT**, không lấy từ tham số người dùng gửi lên. Ba điểm chưa đạt chuẩn triển khai thật, nhóm ghi nhận: CSDL dùng `trust` (thật phải `scram-sha-256`), khoá JWT để mặc định, và chạy HTTP (thật phải HTTPS — cũng là điều kiện để Geolocation API hoạt động).
+### Slide 20 · Kiểm thử tự động và đáp ứng yêu cầu môn học — Vy (~1:00)
 
-**29. Trực quan hoá** — Khối đùn theo **cao độ tuyệt đối** (`elevationInfo: absolute-height`) — bắt buộc, vì để chế độ tương đối thì khối trôi theo địa hình. Khối của người đang đăng nhập tô đậm hơn. Điểm chấm công là cầu 5 m đổi màu theo trạng thái. Chế độ **mô phỏng vị trí** chỉ thay nguồn toạ độ, **giữ nguyên toàn bộ logic máy chủ**. **Xin mời bạn Vy.**
+Nhóm viết kịch bản kiểm thử đầu cuối gồm 34 ca, gọi API thật trên CSDL thật, hiện đạt 34 trên 34. Các ca gồm ba tình huống MAP, phân quyền, thêm sửa xoá từng loại dữ liệu, các ràng buộc CSDL, tự tính lại khối khi sửa tầng, và trải khối theo SSM. Bảng bên phải đối chiếu với yêu cầu trong danh sách đồ án: thêm sửa xoá, thống kê, hiển thị thực thể không gian, và bản đồ 3D mức chi tiết 3 — đều đã đáp ứng. Sau đây em xin demo trực tiếp.
 
----
+### Slide 21 · Demo trực tiếp — Vy (~5:00)
 
-# VY · Slide 30 – 37
+(Chuyển sang trình duyệt và làm theo sáu bước demo ở phần “Kịch bản demo”. Xong quay lại slide tiếp theo.)
 
-**30. Chương 04** — Kết quả thực nghiệm. Em là Vy, phụ trách giao diện và kiểm thử.
+### Slide 22 · Hạn chế và hướng phát triển — Tín (~1:00)
 
-**31. Toà nhà thử nghiệm** — IFC One Saigon, 34 Tôn Đức Thắng. Mặt bằng 19 đỉnh từ OSM, nền 5 m, 42 tầng cao 195,3 m, tầng trung bình 4,65 m, δxy 25 m và δz 5 m. Chọn vì: **có thật** nên kiểm chứng được bằng ảnh vệ tinh, **đủ cao** để tình huống sai tầng có nghĩa, và **có sẵn trong OSM**. Phát hiện phụ: chỉ **3,7 %** công trình TP.HCM trong OSM có thuộc tính chiều cao.
+Nhóm xin nêu thẳng các hạn chế. Độ cao GPS trong nhà rất kém, nên hệ thống dùng tầng khai báo và chỉ đối chiếu chứ không tự quyết định. Chưa dùng cảm biến bổ trợ như BLE beacon hay khí áp kế. Dữ liệu chiều cao từ OpenStreetMap rất thiếu — chỉ khoảng 3,7 phần trăm công trình ở TP.HCM có thuộc tính chiều cao. Và không thể chặn hoàn toàn giả lập GPS từ phía web. Hướng phát triển: hợp nhất BLE và khí áp kế, nâng lên LOD4 để chấm công theo phòng, khối MAP có chiều thời gian cho công trường, và tích hợp tính lương. Em xin mời Vy kết thúc phần trình bày.
 
-**32. Kiểm chứng trigger** — PostgreSQL 17.6 + PostGIS 3.6.2, Node + Express cổng 3000, ArcGIS 4.29. `schema.sql` và `seed.sql` chạy hết, thoát mã 0, tạo đúng 14 bảng / 4 hàm / 1 trigger. Nhóm **tính tay rồi đối chiếu**: Alpha 5 + 4×4,65 = 23,60, hệ thống ghi 23,60; Beta 93,35; Gamma 163,10. **Cả ba khớp tới hai chữ số thập phân.** Mọi con số phần này đều là kết quả chạy thật, tái lập được bằng script.
+### Slide 23 · Cảm ơn — Vy (~0:30)
 
-**33. Ba kịch bản** — **TH1** tầng 6, cao 28,25 m: 3D `HỢP LỆ`, 2D hợp lệ — cùng đúng. **TH3** cách 300 m: 3D `NGOÀI VÙNG`, 2D ngoài vùng — cùng đúng. **TH2** cùng toạ độ nhưng ở tầng 22, cao 104,98 m: 3D `NGHI NGỜ` lệch **+62,78 m ≈ 13,5 tầng**, 2D **hợp lệ — bỏ sót hoàn toàn**. Hai mô hình trùng nhau 2/3 kịch bản và tách nhau đúng ở TH2. TH2 **không phải trường hợp biên hiếm gặp** — trong cao ốc cho thuê, đi họp tầng khác là chuyện thường ngày, nên tỉ lệ bỏ sót thực tế có thể rất lớn.
+Xin tóm lại trong một câu: khi chuyển phép kiểm tra từ “điểm thuộc đa giác” sang “điểm thuộc khối”, hệ thống sinh ra được một trạng thái mới — “đúng toà nhà, sai tầng” — mà mô hình hai chiều không có dữ liệu để phát hiện. Nhóm cảm ơn thầy và các bạn đã lắng nghe, và xin nhận câu hỏi ạ.
 
-**34. Bằng chứng TH2** — Quả cầu xám nằm trong khối xanh Beta Finance (tầng 20–24), còn khối hợp lệ là khối cam Alpha Tech (tầng 5–8) phía dưới. Cao độ 104,98 m · dải hợp lệ 23,60–42,20 · lệch **+62,78 m** ≈ **13,5 tầng** · khoảng cách ngang **0,0 m**. Chính con số 0,0 m giải thích vì sao 2D kết luận hợp lệ. Chỉ mô hình khối mới sinh được cảnh báo R1 mức CAO.
+## Demo trực tiếp
 
-**35. Giao diện** — Màn hình nhân viên và bảng điều khiển quản lý. Số liệu một phiên chạy thử: 4 hợp lệ, 2 nghi ngờ, 6 cảnh báo, **cả bốn quy tắc R1–R4 đều sinh được cảnh báo** — không quy tắc nào chỉ nằm trên giấy. Ảnh chụp nói được đến đây thôi, **em xin chuyển sang chạy trực tiếp**. → **DEMO**
+**Chuẩn bị**
 
-**36. Hiệu năng và mục tiêu** *(nói sau demo)* — Tra khối < 5 ms, kiểm bao hàm < 10 ms, kiểm R2 < 10 ms, ghi < 15 ms — **tổng dưới 50 ms** so với chỉ tiêu 200 ms; thầy vừa thấy kết quả ra gần như tức thì. M1–M5 **đạt**; **M6 chỉ đạt một phần** — trigger suy được cao độ nhưng **chưa có giao diện cho quản trị viên tự vẽ khối MAP**, hiện vẫn nạp bằng SQL. Nhóm ghi "một phần" chứ không làm tròn lên.
+- Chạy ./chay-demo.sh --lam-moi (Linux) hoặc CAI-DAT.bat rồi BAT-DEMO.bat (Windows) để có dữ liệu sạch; kiểm tra http://127.0.0.1:3000/healthz trả về trang_thai: ok.
+- Mở ba cửa sổ trình duyệt, mỗi cửa sổ một tài khoản; dùng cửa sổ ẩn danh cho cửa sổ 2 và 3 để tránh cảnh báo R4 do dùng chung trình duyệt.
+- Cửa sổ 1: khoi.nm / 123456, tab Chấm công, chờ bản đồ tải xong (thấy toà nhà và ba dải cam, xanh, tím).
+- Cửa sổ 2: nhan.vt / 123456, tab Quản lý.
+- Cửa sổ 3: tin.nh / 123456, tab Quản trị.
+- Bản đồ 3D cần Internet (ArcGIS và nền bản đồ tải từ CDN). Thử mạng phòng bảo vệ trước; mất mạng thì panel bên trái vẫn đúng số liệu.
+- Zoom trình duyệt 125 %, tắt thông báo, cắm sạc.
 
-**37. Hạn chế** — (1) Độ cao GPS trong nhà gần như không dùng được nên đa số phải dùng tầng khai báo — phép kiểm tra thành **"đối chiếu khai báo"** chứ không phải **"xác minh độc lập"**; đây là hạn chế lớn nhất. (2) Chưa dùng cảm biến bổ trợ. (3) Dữ liệu chiều cao thiếu — rào cản nằm ở **dữ liệu**, không ở phần mềm. (4) Không chặn được fake GPS cấp OS. (5) Chiều cao tầng lấy trung bình nên tầng cao lệch vài mét. (6) Chưa kiểm thử quy mô lớn. **Biết rõ giới hạn của một hệ thống đo lường cũng quan trọng như biết nó làm được gì.** **Xin mời bạn Tín.**
+**1 · TH1 → HỢP LỆ** (~0:45)
 
----
+- Làm: Cửa sổ 1: bấm Mô phỏng → bấm giữa toà nhà → kéo tầng về 6 → Chấm công VÀO.
+- Nói: Tấm sàn tầng 6 sáng xanh lá, nằm gọn trong dải cam của Alpha Tech. Kết quả HỢP LỆ, khoảng cách ngang gần 0 m, cao độ 30,58 m trong dải 23,60–42,20 m.
 
-# VY · DEMO TRỰC TIẾP — 4 phút
+**2 · TH2 → NGHI NGỜ (điểm nhấn)** (~1:15)
 
-*(chèn giữa slide 35 và 36)*
+- Làm: Không bấm lại bản đồ → kéo tầng lên 22 → Chấm công RA.
+- Nói: Toạ độ giữ nguyên, chỉ đổi tầng. Tấm sàn nhảy lên dải xanh của Beta Finance. Kết quả NGHI NGỜ, lệch +62,78 m ≈ 13,5 tầng, cảnh báo R1 mức CAO. Hàng rào 2D sẽ kết luận hợp lệ.
 
-## Bật ứng dụng
+**3 · TH3 → NGOÀI VÙNG** (~0:30)
 
-Nhấp đúp **`BAT-DEMO.bat`** trong `D:\UIT\ie402-chamcong-3d\`. Chờ ~20 giây, phải thấy đủ `[1/3] [2/3] [3/3]` và **`so_nhan_vien = 4`**. Cửa sổ đen *"May chu cham cong 3D"* **để nguyên** — đóng nó là tắt máy chủ. Xong việc chạy **`TAT-DEMO.bat`**.
+- Làm: Bấm Mô phỏng → bấm cách toà nhà vài trăm mét → Chấm công VÀO.
+- Nói: NGOÀI VÙNG, khoảng cách ngang vượt xa dung sai 25 m. Nếu di chuyển quá nhanh so với lần trước sẽ có thêm R2.
 
-Gõ tay nếu .bat hỏng:
+**4 · Giải trình và duyệt** (~1:00)
 
-```powershell
-& 'D:\pgportable\pgsql\bin\pg_ctl.exe' -D D:\pgportable\data `
-    -o '-p 55432 -c listen_addresses=127.0.0.1' -l D:\pgportable\server.log start
-# cửa sổ thứ hai:
-cd D:\UIT\ie402-chamcong-3d\server ; npm start
-```
+- Làm: Tab Lịch sử → bản ghi NGHI NGỜ → Gửi giải trình “Họp với khách hàng ở tầng 22” → cửa sổ 2 (nhan.vt) tab Quản lý → Duyệt → quay lại cửa sổ 1, F5.
+- Nói: Bản ghi tự chuyển NGHI NGỜ → HỢP LỆ và cảnh báo R1 được đóng, cả hai trong một giao dịch.
 
-Kiểm tra sống: **http://127.0.0.1:3000/healthz** → `trang_thai: ok`.
-Không ra gì = Node chưa chạy · lỗi kết nối = PostgreSQL chưa chạy. **Không cần tạo `.env`.**
+**5 · Quản trị: thêm toà nhà và khối** (~1:00)
 
-## Checklist 15 phút trước
+- Làm: Cửa sổ 3 (tin.nh) → Toà nhà → + Thêm mới → tên, 18 tầng, 3,8 m, 3 tầng đế → Vẽ đa giác trên bản đồ (bấm 4 điểm, bấm đúp) → Lưu → Văn phòng & khối MAP → + Thêm mới → Alpha Tech, toà vừa tạo, tầng 9–12 → thử nhập 20 ở “Đến tầng” → Lưu (bị từ chối) → sửa lại 12 → Lưu.
+- Nói: Vẽ xong là mô hình LOD3 hiện ngay, sinh tự động từ dữ liệu. Khối xem trước 35,40 → 50,60 m. Nhập tầng 20 trong toà 18 tầng thì khối báo đỏ và CSDL từ chối bằng trigger.
 
-- [ ] `BAT-DEMO.bat` chạy, thấy `so_nhan_vien = 4`, `/healthz` ok
-- [ ] **Cửa sổ 1:** `an.nv` / `123456`, tab Chấm công, bản đồ đã tải (thấy toà nhà + ba dải cam/xanh/tím)
-- [ ] **Cửa sổ 2:** `binh.tt` / `123456`, tab Quản lý — mở sẵn, khỏi đăng xuất trước mặt thầy
-- [ ] Zoom trình duyệt **125 %**, tắt thông báo Windows/Zalo, cắm sạc (pin yếu → GPU bị bóp, bản đồ giật)
-- [ ] **Ảnh dự phòng** mở sẵn: `scratch/demo/nha-tang06.png`, `nha-tang22.png`, `quanly-xuat.png`
-- [ ] ⚠️ **Bản đồ 3D cần Internet** (ArcGIS + ảnh vệ tinh từ CDN) — thử mạng phòng bảo vệ trước. Mất mạng thì bản đồ trống nhưng **mọi con số ở panel trái vẫn đúng**, vẫn demo được.
+**6 · LOD1 ⇄ LOD3 và xuất CSV** (~0:30)
 
-## Năm bước
+- Làm: Bấm LOD1 rồi LOD3 ở góc bản đồ → cửa sổ 2 bấm Xuất CSV ở Báo cáo công, mở bằng Excel.
+- Nói: LOD1 để tính toán, LOD3 để hiển thị. Tệp CSV mở bằng Excel đúng dấu tiếng Việt và đúng cột nhờ BOM UTF-8 và khai báo sep=;.
 
-**0 · Vào đề (15 giây)** — Tài khoản **an.nv**, nhân viên Alpha Tech thuê **tầng 5–8**, dải cao độ **23,60–42,20 m**, δxy 25 m δz 5 m. Bên phải là IFC One Saigon dựng 3D đúng vị trí thật. Ba dải màu là ba văn phòng: **cam Alpha 5–8**, xanh Beta 20–24, tím Gamma 35–40.
-
-**1 · TH1 → HỢP LỆ (45 giây)**
-> Bấm **Mô phỏng** → bấm giữa toà nhà → kéo tầng về **6** → **Chấm công VÀO**
-
-Em chọn mô phỏng, bấm giữa toà nhà. Thầy để ý: kéo về **tầng 6** thì **tấm sàn sáng lên màu xanh lá**, nằm gọn trong dải cam. Chấm công vào → **HỢP LỆ**, khoảng cách ngang **0 m**, cao độ **30,58 m**, trong dải 23,60–42,20. Không cảnh báo nào. Đây là TH1 — 2D và 3D cùng đúng.
-
-**2 · TH2 → NGHI NGỜ · ĐIỂM NHẤN (75 giây)**
-> **Không bấm lại bản đồ** → kéo tầng lên **22** → **Chấm công RA**
-
-Đây là tình huống quan trọng nhất. Em **không đụng gì đến vị trí** — toạ độ giữ nguyên y như lần trước, chỉ kéo lên **tầng 22**.
-
-*(dừng 2 giây, chỉ tay lên màn hình)*
-
-Thầy nhìn toà nhà: **tấm sàn sáng đã nhảy từ dải cam lên tận dải xanh** — từ Alpha Tech lên Beta Finance, cách nhau mười mấy tầng.
-
-Chấm công ra → **NGHI NGỜ — đúng toà nhà, sai tầng.** Khoảng cách ngang vẫn **0 m**, nghĩa là với hàng rào 2D lần này **hợp lệ hoàn toàn**. Nhưng cao độ **104,98 m** trong khi dải cho phép chỉ tới 42,20 — lệch **+62,78 m**. Và cảnh báo **R1 mức CAO**: *"Sai tầng: lệch 62,78 m so với dải khối, tương đương 13,5 tầng."*
-
-Hệ thống không chỉ nói "sai", nó nói **sai bao nhiêu tầng**. **Đây chính là trạng thái mô hình 2D không thể sinh ra.**
-
-**3 · TH3 → NGOÀI VÙNG (30 giây)**
-> **Mô phỏng** → bấm cách toà nhà vài trăm mét → **Chấm công VÀO**
-
-**NGOÀI VÙNG**, khoảng cách ngang **316 m**, vượt xa dung sai 25 m. Thêm cảnh báo **R2 — dịch chuyển bất khả thi**: hệ thống tự so với lần trước, vận tốc suy ra vượt 150 km/h. Quy tắc này chạy tự động.
-
-**4 · Giải trình và duyệt (60 giây)**
-> Tab **Lịch sử** → bản ghi NGHI NGỜ → **Gửi giải trình** *"Họp với khách hàng ở tầng 22"* → sang **cửa sổ 2** (`binh.tt`) tab Quản lý → **Duyệt** → quay lại cửa sổ 1, F5
-
-Nhân viên không bị kết tội, bạn ấy gửi giải trình. Chuyển sang tài khoản quản lý: bảng điều khiển tổng hợp theo trạng thái và quy tắc; danh sách cảnh báo sắp **theo mức độ trước, thời gian sau**. Quản lý duyệt. Quay lại — bản ghi **tự chuyển NGHI NGỜ → HỢP LỆ** và cảnh báo R1 cũng đóng lại, **cả hai trong một giao dịch**.
-
-**5 · Xuất tệp (30 giây)**
-> Cửa sổ quản lý → **Xuất CSV** ở *Báo cáo công* → mở bằng Excel
-
-Ba nút xuất CSV. Tệp mở bằng Excel **đúng dấu tiếng Việt và đúng cột** — nhóm xử lý hai chi tiết: ghi BOM UTF-8, và khai báo `sep=;` vì Excel locale Việt Nam dùng dấu chấm phẩy làm phân cách cột. **Em xin hết phần demo, quay lại slide đánh giá.**
-
-## Khi có sự cố
+**Khi có sự cố**
 
 | Tình huống | Xử lý |
 |---|---|
-| Bản đồ không tải | Nói tiếp bằng số liệu panel trái (vẫn đủ), mở ảnh `nha-tang22.png`. **Đừng F5 quá 1 lần.** |
-| Máy chủ chết | *"Xin phép thầy em dùng ảnh chụp kết quả đã kiểm chứng"* → chạy tiếp bằng lời. **Không sửa lỗi trước mặt thầy.** |
-| Bấm bản đồ không ăn | Nút **Mô phỏng** phải đang hiện *"Đang chờ… bấm lên bản đồ"* |
-| Thầy hỏi giữa chừng | Trả lời ngắn, *"phần này em chuẩn bị ở slide 42, xin trả lời đầy đủ ở cuối ạ"* |
-| Số khác slide 35 | *"Số trên slide là phiên chạy lúc viết báo cáo, số trên màn hình là phiên đang chạy — logic giống nhau, chỉ khác số bản ghi."* Bình thường, **đừng lúng túng.** |
-| Lỗi bật app | `EADDRINUSE :::3000` → chạy `TAT-DEMO.bat` rồi bật lại · `could not connect` → PostgreSQL chưa lên, xem `D:\pgportable\server.log` · `database does not exist` → chạy `CAI-DAT.bat` |
+| Bản đồ không tải | Nói tiếp bằng số liệu panel trái (vẫn đủ), mở ảnh docs/02-ket-qua-nghi-ngo.png. Không F5 quá một lần. |
+| Máy chủ không phản hồi | Xin phép dùng ảnh chụp kết quả đã kiểm chứng và trình bày bằng lời; không sửa lỗi trước hội đồng. |
+| Bấm bản đồ không ăn | Nút Mô phỏng phải đang hiện “Đang chờ… bấm lên bản đồ”. |
+| Hiện cảnh báo R4 ngoài dự kiến | Do nhiều tài khoản dùng chung một trình duyệt trong 10 phút — đúng thiết kế, giải thích ngắn rồi đi tiếp. |
+| Lỗi khi bật ứng dụng | Cổng 3000 bận → ./tat-demo.sh (hoặc TAT-DEMO.bat) rồi bật lại; không kết nối được CSDL → PostgreSQL chưa chạy. |
 
----
-
-# TÍN · Slide 38 – 40
-
-**38. Chương 05** — Kết luận và phân công.
-
-**39. Đóng góp và hướng phát triển** — *Học thuật:* mô hình MAP, chuyên biệt hoá khối đùn LoD1 cho bài toán xác thực vị trí, với hai thành phần dung sai đưa **thẳng vào định nghĩa**. *Kỹ thuật:* cài đặt hoàn chỉnh chỉ bằng mã nguồn mở và dữ liệu mở, logic quyết định đặt trong CSDL. *Ứng dụng:* bộ tiêu chí so sánh 2D/3D và ba kịch bản kiểm thử tối thiểu mà mọi hệ chấm công định vị nên vượt qua. *Tài liệu:* định lượng rào cản ít được nói tới — chỉ 3,7 % công trình có thuộc tính chiều cao.
-Hướng phát triển — *Ngắn hạn:* công cụ vẽ khối MAP trên SceneView (chính là phần thiếu của M6), bảng cao độ thực tế từng tầng, triển khai HTTPS. *Trung hạn:* hợp nhất BLE và khí áp kế, nâng lên LoD2/LoD3. *Dài hạn:* khối MAP **có chiều thời gian** cho công trường, tích hợp tính lương, chuẩn hoá theo CityGML.
-
-**40. Phân công** — Chia **theo lớp kiến trúc, không theo số trang**. **Tín** (nhóm trưởng) mô hình dữ liệu: đề xuất MAP, ERD, schema, hàm nghiệp vụ, trigger, biên tập báo cáo. **Nhân** máy chủ: Express, JWT, phân quyền, điểm cuối chấm công, giao dịch, R1–R4. **Khôi** bản đồ 3D: SceneView, camera, dựng khối MAP, vẽ điểm theo cao độ tuyệt đối, bản đồ TP.HCM. **Vy** giao diện và kiểm thử: bảy màn hình, luồng API, ba kịch bản đối chiếu, ảnh chụp và kịch bản trình diễn. Ba nguyên tắc: chia theo lớp; mỗi phần có một người chính và **một người đọc chéo**; **chốt lược đồ CSDL và danh sách API ngay tuần 4** để bốn người làm song song.
-
----
-
-# KHÔI · Slide 41
-
-**41. Phụ lục** — Sản phẩm nhóm làm **trong quá trình học** để làm chủ ArcGIS SDK trước khi vào đồ án chính: địa giới TP.HCM sau sáp nhập, hiệu lực 01/7/2025. **168 đơn vị cấp xã** (113 phường, 54 xã, 1 đặc khu); diện tích tính được **6.745 km²** so với công bố 6.772,6 — lệch dưới 0,5 %; **113/168 đơn vị có dữ liệu dân số**, số còn lại **vẽ xám, không bịa số**. Kỹ thuật kế thừa Lab 1–2, mở rộng thêm UniqueValueRenderer, visualVariables chia theo phân vị, nhãn label-3d có viền sáng, chuyển 3D ⇄ 2D giữ nguyên khung nhìn.
-
----
-
-# NHÂN · Slide 42
-
-**42. Câu hỏi đã chuẩn bị** — Nhóm chuẩn bị sáu câu, em lướt nhanh ba câu:
-**"Sao không dùng geofence 2D cho đơn giản?"** → Kịch bản TH2 thầy vừa thấy trong demo.
-**"GPS trong nhà không đo được độ cao thì mô hình còn ý nghĩa gì?"** → Chuyển từ *xác minh độc lập* sang *đối chiếu khai báo*: vẫn phát hiện được sự không nhất quán, vẫn lưu bằng chứng 3D, và sẵn sàng nhận độ cao từ beacon hay khí áp kế.
-**"Sao PostGIS mà không MongoDB?"** → MongoDB chỉ có chỉ mục 2dsphere trên mặt cầu 2 chiều, không lưu và không truy vấn được thành phần độ cao — tức là **không cài đặt được mô hình của đồ án**.
-
----
-
-# VY · Slide 43
-
-**43. Cảm ơn** — Phần trình bày của nhóm 1 đến đây là hết. Xin tóm trong một câu: **khi chuyển phép kiểm tra từ "điểm thuộc đa giác" sang "điểm thuộc khối", hệ thống sinh ra được một trạng thái mới — "đúng toà nhà, sai tầng" — mà mô hình hai chiều không có dữ liệu để phát hiện.** Nhóm cảm ơn thầy và các bạn, và xin lắng nghe câu hỏi ạ.
-
----
-
-## Ai trả lời câu hỏi nào
+## Câu hỏi dễ gặp
 
 | Câu hỏi | Người | Ý chính |
 |---|---|---|
-| Sao không dùng geofence 2D? | Vy | TH2 — chuyện thường ngày trong cao ốc, không phải trường hợp biên |
-| GPS trong nhà không đo được độ cao? | Tín | Chuyển sang *đối chiếu khai báo*; vẫn lưu bằng chứng 3D |
-| Sao PostGIS mà không MongoDB? | Nhân | 2dsphere không lưu được thành phần Z |
-| δxy 25 m và δz 5 m lấy từ đâu? | Tín | δxy theo sai số GNSS khu nhà cao tầng; δz ≈ chiều cao một tầng (4,65 m) |
-| Có chống được fake GPS không? | Nhân | **Không.** R2–R4 chỉ tăng chi phí gian lận; cần chứng thực phía thiết bị |
-| Nhiều toà nhà thì hiệu năng? | Nhân | Tra khối theo quan hệ nhân viên–công ty–văn phòng, không có bước tìm kiếm không gian; GiST sẵn nếu cần tìm khối gần nhất |
-| **14 hay 15 bảng?** | Nhân | 14 bảng của lược đồ; `spatial_ref_sys` là bảng hệ thống PostGIS, đã kiểm bằng `pg_class` |
-| **Sao M6 chỉ đạt một phần?** | Vy | Trigger suy được cao độ nhưng chưa có giao diện vẽ khối MAP; hiện nạp bằng SQL |
-| **QUAN_TRI khác QUAN_LY chỗ nào?** | Nhân | **Hiện chưa khác** — vai trò thứ ba đã khai báo nhưng chưa có chức năng riêng, đúng với M6 đạt một phần |
-
-## Lưu ý khi trình bày
-
-- **Không đọc slide** — slide có chữ rồi, người nói bổ sung *vì sao*.
-- **Dừng 2 giây sau con số quan trọng**, nhất là "62,78 mét" và "13,5 tầng".
-- Chuyển người: người trước nói **"xin mời bạn X"**, người sau bước lên rồi mới nói.
-- Không biết thì: *"Phần đó nhóm chưa khảo sát kỹ, em xin ghi nhận ạ."* — **trung thực ăn điểm hơn đoán bừa**, và đúng tinh thần cách đồ án nêu hạn chế.
+| Sao không dùng geofence 2D cho đơn giản? | Vy | Tình huống 2 trong demo: cùng toạ độ, khác 17 tầng — chuyện thường ngày trong cao ốc, không phải trường hợp biên. |
+| Sao chọn SSM mà không UDM hay 3D-FDS? | Tín | SSM chỉ cần NODE và FACE, làm cho web 3D; UDM phải tam giác hoá đáy lõm; 3D-FDS thừa ARC/EDGE. Nhóm nới ràng buộc FACE lồi cho đáy và nắp. |
+| Dung lượng một khối theo SSM là bao nhiêu? | Tín | Hình hộp 564 byte; khối Alpha (18 đỉnh) 2.468 byte; lưu gọn (P, z_min, z_max) khoảng 340 byte, trải ra bằng hàm ssm_cua_khoi(). |
+| LOD3 là gì, có theo chuẩn không? | Khôi | Kiến trúc mặt ngoài theo CityGML; mỗi thành phần gắn WallSurface, Window, Door, RoofSurface, BuildingInstallation. Kiểm tra bao hàm vẫn dùng LOD1 vì mặt dựng không đổi kết quả. |
+| GPS trong nhà không đo được độ cao thì sao? | Tín | Chuyển từ xác minh độc lập sang đối chiếu khai báo: vẫn phát hiện được không nhất quán, vẫn lưu bằng chứng 3D, sẵn sàng nhận độ cao từ beacon hay khí áp kế. |
+| Sao PostGIS mà không MongoDB? | Nhân | Chỉ mục 2dsphere của MongoDB chỉ làm việc trên mặt cầu hai chiều, không truy vấn được thành phần độ cao — không cài được mô hình của đồ án. |
+| δxy 25 m và δz 5 m lấy từ đâu? | Tín | δxy theo sai số GNSS ở khu nhà cao tầng; δz xấp xỉ chiều cao một tầng (4,65 m). |
+| Có chống được fake GPS không? | Nhân | Không hoàn toàn. R2–R4 chỉ tăng chi phí gian lận; muốn chặn hẳn cần chứng thực phía thiết bị. |
+| Quản trị khác quản lý chỗ nào? | Nhân | Quản lý xử lý nghiệp vụ (cảnh báo, duyệt đơn, báo cáo); quản trị quản lý dữ liệu nền — API /api/quan-tri/* trả 403 với quản lý. |
+| Sửa chiều cao tầng thì khối có cập nhật không? | Nhân | Có. Trigger trên toa_nha và van_phong đặt lại z rồi trigger suy cao độ tính lại; npm test có kiểm thử đúng trường hợp này. |
+| Nhiều toà nhà thì hiệu năng thế nào? | Nhân | Khối được tra theo quan hệ nhân viên – công ty – văn phòng rồi sắp theo khoảng cách; có chỉ mục GiST trên đa giác nền. |

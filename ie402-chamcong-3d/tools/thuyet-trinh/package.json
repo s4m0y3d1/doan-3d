@@ -1,0 +1,15 @@
+{
+  "name": "ie402-thuyet-trinh",
+  "private": true,
+  "description": "Sinh slide PowerPoint thuyết trình đồ án IE402",
+  "scripts": {
+    "build": "node build_pptx.js && python3 build_kich_ban.py"
+  },
+  "dependencies": {
+    "pptxgenjs": "^3.12.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-icons": "^5.3.0",
+    "sharp": "^0.33.5"
+  }
+}

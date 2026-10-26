@@ -16,6 +16,8 @@ from PIL import Image
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 TEMPLATE = os.path.join(os.path.expanduser("~"), "Downloads", "Mau_do_an_IE402.docx")
+# Bản mẫu nằm sẵn trong zip tài liệu môn học ở thư mục gốc repo
+ZIP_TAI_LIEU = os.path.join(os.path.dirname(ROOT), "tai lieu mon 3D")
 OUT = os.path.join(ROOT, "DO-AN-IE402-Cham-cong-dinh-vi-3D.docx")
 DG = os.path.join(ROOT, "docs", "diagrams")
 SHOT = os.path.join(ROOT, "docs")
@@ -241,51 +243,361 @@ def ch1_y_nghia(b):
 
 
 def ch2_co_so_ly_thuyet(b):
-    b.para("Các mô hình biểu diễn đối tượng ba chiều thường dùng trong GIS được so "
-           "sánh trong bảng sau:")
+    b.para("Mục này trình bày các nền tảng lý thuyết mà đề tài dựa vào: khái niệm GIS và GIS "
+           "ba chiều, hệ toạ độ và cao độ, các mô hình dữ liệu không gian 2D và 3D đã học, chuẩn "
+           "mức chi tiết CityGML, nguyên lý định vị GNSS cùng sai số của nó trong đô thị, các "
+           "thuật toán kiểm tra bao hàm, và hai công nghệ nền là PostGIS và ArcGIS Maps SDK. Cuối "
+           "mỗi phần là cách đề tài áp dụng lý thuyết đó.")
+
+    # ------------------------------------------------------------------ 2.1.1
+    b.heading("2.1.1. Hệ thống thông tin địa lý và GIS ba chiều", 3)
+    b.para("Thuật ngữ GIS được hiểu theo ba nghĩa tuỳ trọng tâm: Geographic Information System "
+           "khi nhấn mạnh hạ tầng (phần cứng, phần mềm, dữ liệu), Geographic Information Science "
+           "khi nhấn mạnh lý thuyết và nguyên lý, và Geographic Information Service khi nhấn mạnh "
+           "dịch vụ phục vụ kinh tế – xã hội. Theo mô hình năm thành phần, một hệ GIS gồm phần cứng, "
+           "phần mềm, dữ liệu không gian và thuộc tính, con người, và quy trình – phương pháp xử lý; "
+           "mô hình sáu thành phần bổ sung thêm mạng truyền thông.")
+    b.para("Xét vị trí của GIS trong một ứng dụng, có ba mức: GIS giữ vai trò chính (ứng dụng mà "
+           "mục đích chính là xử lý không gian), vai trò bán phần (GIS là một phần có giá trị nghiệp "
+           "vụ), và chỉ là một chức năng nhỏ. Trong đề tài, GIS giữ vai trò chính: quyết định ghi "
+           "công hay không được đưa ra trực tiếp từ một phép toán không gian ba chiều.")
+    b.para("Các khái niệm nền tảng và cách đề tài sử dụng:", bold=True)
     b.table(
-        ["Mô hình", "Mô tả", "Ưu điểm", "Nhược điểm"],
+        ["Khái niệm", "Nội dung", "Áp dụng trong đề tài"],
         [
-            ["2.5D Prism (khối đùn)", "Đa giác nền được đùn lên theo chiều cao",
-             "Nhẹ; dựng trực tiếp từ footprint và số tầng; phép kiểm tra bao hàm rất rẻ",
-             "Không mô tả được phần nhô ra, mái vòm hay nội thất"],
-            ["B-Rep (Boundary Representation)", "Mô tả bằng tập mặt – cạnh – đỉnh",
-             "Chính xác, biểu diễn được hình học phức tạp",
-             "Dữ liệu nặng, khó dựng và khó truy vấn không gian"],
-            ["CSG (Constructive Solid Geometry)", "Tổ hợp Boolean các khối cơ bản",
-             "Gọn với hình dạng quy tắc",
-             "Không phù hợp với dữ liệu đo đạc thực tế"],
-            ["Voxel / Octree", "Chia không gian thành các ô lập phương",
-             "Tốt cho truy vấn thể tích và mô phỏng lan truyền",
-             "Tốn bộ nhớ, mất độ chính xác ở biên"],
-            ["TIN", "Lưới tam giác bất quy tắc",
-             "Phù hợp mô tả địa hình",
-             "Chỉ là bề mặt, không phải khối đặc"],
+            ["Không gian", "Tập hợp đối tượng và quan hệ giữa chúng; có không gian tuyệt đối (gắn hệ "
+             "toạ độ) và tương đối (theo quan hệ)", "Không gian tuyệt đối: mọi đối tượng gắn toạ độ WGS84"],
+            ["Chiều", "2D; 2.5D là 2D thêm thuộc tính chiều cao; 3D; thời gian được tính là một chiều "
+             "(2D + thời gian = 3D, 3D + thời gian = 4D)",
+             "Khối MAP là 3D thật (có z_min, z_max); quy tắc R2 dùng thêm chiều thời gian"],
+            ["Vị trí", "Bắt buộc trong mọi hệ GIS, gắn với một hệ toạ độ cụ thể",
+             "Điểm chấm công là PointZ (kinh độ, vĩ độ, cao độ)"],
+            ["Hình học", "2D: điểm, đường, đa giác. 3D: điểm, đường, mặt, khối",
+             "Toà nhà: đa giác nền; khối MAP: khối lăng trụ; bản ghi: điểm"],
+            ["Hướng", "Vector đơn vị; trong 3D có trước – sau, trái – phải, trên – dưới",
+             "Hướng mặt (pháp tuyến) của FACE trong SSM; hướng cửa chính của toà nhà LOD3"],
+            ["Thời gian", "Rời rạc hoặc liên tục; có thứ tự giữa các sự kiện",
+             "Thứ tự các lần chấm công để tính vận tốc dịch chuyển (R2) và trùng thiết bị (R4)"],
         ],
-        widths=[1.2, 1.5, 1.8, 1.6])
-    b.para("Lựa chọn: mô hình 2.5D Prism.", bold=True)
+        widths=[1.0, 2.7, 2.4])
+
+    # ------------------------------------------------------------------ 2.1.2
+    b.heading("2.1.2. Hệ toạ độ và cao độ", 3)
+    b.para("Toạ độ của một điểm luôn gắn với một hệ toạ độ xác định. Đề tài dùng hai hệ:")
     b.bullets([
-        "Bài toán chỉ cần trả lời “điểm có nằm trong khối văn phòng hay không”, không "
-        "cần mô tả chi tiết kiến trúc. Prism là mức chi tiết vừa đủ, tương đương LoD1 "
-        "trong chuẩn CityGML.",
-        "Phép kiểm tra tách được thành hai bước có chi phí thấp: kiểm tra điểm thuộc "
-        "đa giác trên mặt phẳng bằng thuật toán ray casting (độ phức tạp O(n) theo số "
-        "đỉnh), và so sánh cao độ với dải [z_min, z_max]. Đáp ứng mục tiêu M2.",
-        "Dữ liệu đầu vào sẵn có: footprint toà nhà lấy được từ OpenStreetMap; số tầng "
-        "và chiều cao tầng lấy từ khảo sát thực tế. Không cần quét laser hay mô hình BIM.",
-        "Được ArcGIS Maps SDK for JavaScript hỗ trợ trực tiếp qua PolygonSymbol3D kết "
-        "hợp ExtrudeSymbol3DLayer, và được PostGIS hỗ trợ qua kiểu hình học có toạ độ Z.",
+        ("WGS84 — EPSG:4326: ", "hệ toạ độ địa lý (kinh độ, vĩ độ tính bằng độ) trên elipxoit WGS84. "
+         "Đây là hệ mà GPS và Geolocation API trả về, và là hệ lưu trữ mọi hình học trong CSDL."),
+        ("Web Mercator — EPSG:3857: ", "hệ toạ độ phẳng (mét) mà các nền bản đồ trực tuyến dùng để "
+         "hiển thị. Khi quản trị viên vẽ đa giác trên SceneView, hình học nhận được ở hệ này và "
+         "được đổi về WGS84 (webMercatorToGeographic) trước khi gửi lên máy chủ."),
     ])
-    b.para("Nhược điểm chấp nhận được: mọi tầng của một văn phòng bị coi là một khối "
-           "liền, không mô tả được vách ngăn bên trong. Với bài toán chấm công — chỉ "
-           "cần xác định người lao động thuộc văn phòng nào — đây không phải hạn chế "
-           "thực chất.", italic=True)
+    b.para("Vì kinh độ, vĩ độ là góc, không thể lấy hiệu toạ độ để có khoảng cách. Khoảng cách "
+           "giữa hai điểm trên mặt cầu bán kính R được tính bằng công thức haversine:")
+    b.code("d = 2R · arcsin( sqrt( sin²(Δφ/2) + cos φ1 · cos φ2 · sin²(Δλ/2) ) )\n"
+           "φ: vĩ độ, λ: kinh độ (radian), R ≈ 6 371 km")
+    b.para("PostGIS làm việc này chính xác hơn trên elipxoit khi hình học được ép sang kiểu "
+           "geography; kết quả của ST_Distance và ST_DWithin khi đó tính bằng mét. Đề tài dùng "
+           "đúng cách này cho dung sai ngang δxy và cho quy tắc R2.")
+    b.para("Cao độ là phần dễ nhầm nhất. Có ba đại lượng khác nhau:", bold=True)
+    b.bullets([
+        ("h — cao độ elipxoit: ", "khoảng cách tới elipxoit WGS84. Đây là giá trị altitude mà GNSS "
+         "và Geolocation API trả về."),
+        ("H — cao độ chuẩn: ", "khoảng cách tới geoid, xấp xỉ mực nước biển trung bình. Bản đồ, "
+         "hồ sơ công trình và cao độ nền toà nhà trong CSDL dùng loại này."),
+        ("N — độ cao geoid: ", "chênh lệch giữa hai mặt chuẩn, thay đổi theo vị trí (trên toàn cầu "
+         "khoảng −106 m đến +85 m). Ba đại lượng liên hệ: h = H + N."),
+    ])
+    b.image("13-cao-do-gnss.png", "Hình 2.1 — Cao độ elipxoit h, cao độ chuẩn H và độ cao geoid N")
+    b.para("Hệ quả cho đề tài: z_min, z_max của khối MAP là cao độ chuẩn (tính từ cao độ nền), "
+           "nên khi dùng cao độ do thiết bị đo được phải trừ N tại vị trí toà nhà trước khi so sánh. "
+           "Bản cài đặt hiện tại chủ yếu dùng tầng khai báo (đã quy về cao độ chuẩn); việc hiệu chỉnh "
+           "N cho nguồn cao độ thiết bị được ghi nhận ở phần hạn chế.", italic=True)
+
+    # ------------------------------------------------------------------ 2.1.3
+    b.heading("2.1.3. Mô hình và cấu trúc dữ liệu không gian 2D", 3)
+    b.para("Mô hình dữ liệu không gian là cách biểu diễn thế giới thực thành dữ liệu máy tính lưu "
+           "và xử lý được, gồm ba mức: quan niệm, logic và vật lý. Có hai cách tiếp cận lớn. Mô hình "
+           "raster chia không gian thành lưới ô, mỗi ô mang một giá trị — phù hợp ảnh vệ tinh, "
+           "địa hình, hiện tượng liên tục. Mô hình vector biểu diễn đối tượng bằng điểm, đường, đa "
+           "giác với toạ độ chính xác — phù hợp đối tượng có ranh giới rõ như toà nhà, văn phòng. "
+           "Đề tài dùng vector.")
+    b.para("Trong mô hình vector 2D có ba cách tổ chức:")
+    b.image("14-vector-2d.png", "Hình 2.2 — Ba mô hình vector 2D: spaghetti, mạng, topology")
+    b.table(
+        ["Mô hình", "Cách lưu", "Ưu điểm", "Nhược điểm"],
+        [
+            ["Spaghetti", "Mỗi đối tượng tự giữ dãy toạ độ của mình", "Đơn giản, dễ cài đặt, "
+             "là dạng của chuẩn OGC Simple Features", "Không lưu quan hệ; cạnh chung bị lưu hai lần"],
+            ["Mạng", "Node và cung; cung nối hai node, có thể có hướng", "Phân tích luồng, đường đi "
+             "ngắn nhất (giao thông, điện, nước)", "Không mô tả quan hệ giữa các vùng"],
+            ["Topology", "Cung biết node đầu, node cuối, đa giác trái, đa giác phải", "Truy vấn kề "
+             "– chứa – nối nhanh, không dư thừa", "Cấu trúc phức tạp, cập nhật tốn công"],
+        ],
+        widths=[0.9, 1.7, 1.8, 1.7])
+    b.para("Áp dụng: các khối MAP độc lập với nhau, không cần truy vấn kề hay nối, nên đa giác nền "
+           "P được lưu kiểu spaghetti theo chuẩn OGC Simple Features (kiểu Polygon của PostGIS). "
+           "Quan hệ “văn phòng nằm trong toà nhà” được kiểm tra bằng phép toán hình học "
+           "(ST_Intersects) khi nhập liệu thay vì lưu sẵn topology.", italic=True)
+
+    # ------------------------------------------------------------------ 2.1.4
+    b.heading("2.1.4. Mô hình dữ liệu không gian 3D", 3)
+    b.para("Một mô hình dữ liệu GIS 3D cũng cần ba mức quan niệm, logic và vật lý; sự phát triển "
+           "của nó phụ thuộc vào CSDL không gian và kỹ thuật thu nhận dữ liệu (viễn thám, quét laser). "
+           "Có bốn hướng tiếp cận biểu diễn đối tượng 3D:")
+    b.image("09-bon-huong-3d.png", "Hình 2.3 — Bốn hướng biểu diễn đối tượng 3D")
+    b.table(
+        ["Hướng tiếp cận", "Ý tưởng", "Mô hình tiêu biểu"],
+        [
+            ["B-REP (biểu diễn bởi đường biên)",
+             "Mô tả đối tượng bằng các phần tử biên: điểm, đường, bề mặt, khối", "3D-FDS, SSM, UDM, SUDM, TEN, OO, CityGML"],
+            ["Voxel (chia nhỏ không gian)", "Chia khối thành các ô con, mỗi ô mang một giá trị", "3D Array, Octree"],
+            ["CSG (tổ hợp khối cơ bản)",
+             "Ghép các khối cơ bản bằng phép biến đổi và phép hội, giao, hiệu", "CSG"],
+            ["Tổ hợp", "Kết hợp các cách trên", "V-3D, B-REP + CSG"],
+        ],
+        widths=[1.6, 2.6, 1.9])
+    b.para("Đặc điểm các mô hình đã học:", bold=True)
+    b.bullets([
+        ("3D-FDS (Molenaar, 1990): ", "bốn đối tượng cơ sở BODY, SURFACE, LINE, POINT và bốn đối "
+         "tượng nguyên tố NODE, ARC, EDGE, FACE. ARC là đoạn thẳng, ARC và FACE không giao nhau. "
+         "Topology đầy đủ nhưng dữ liệu lớn."),
+        ("SSM — Simplified Spatial Model (Zlatanova, 2000): ", "chỉ hai đối tượng nguyên tố NODE, "
+         "FACE và bốn đối tượng cơ sở POINT, LINE, SURFACE, BODY. Không dùng ARC — cạnh được xem là "
+         "một phần của các FACE. FACE phải phẳng, lồi, có hướng; quan hệ NODE ON FACE (có thứ tự) "
+         "và FACE IN BODY được lưu tường minh. Thiết kế cho truy vấn hiển thị 3D trên web."),
+        ("UDM — Urban Data Model (Coors, 2003): ", "tương tự SSM nhưng FACE là tam giác; hợp với "
+         "đồ hoạ máy tính, đổi lại phải tam giác hoá mọi mặt."),
+        ("SUDM, LUDM (Nguyễn Gia Tuấn Anh): ", "các mô hình chuyên biệt cho dữ liệu đô thị, phát "
+         "triển từ hướng B-REP."),
+        ("3D Array và Octree: ", "mảng ba chiều giá trị 0/1, hoặc cây tám nhánh chia đôi không gian "
+         "theo từng trục. Có biểu diễn bên trong, dùng nhiều trong địa chất; độ phân giải càng mịn "
+         "thì dữ liệu càng lớn."),
+        ("CSG: ", "khối được tạo bằng phép tịnh tiến, quay, co giãn và phép hội, giao, hiệu trên "
+         "hình lập phương, trụ, cầu. Thuận lợi tính thể tích, phổ biến trong CAD, nhưng không hợp "
+         "với hình dạng bất quy tắc."),
+        ("V-3D (Xinhua Wang, 2000) và B-REP + CSG: ", "mô hình tổ hợp. V-3D dùng NODE, EDGE, "
+         "FACET và gắn ảnh raster cho FACET; B-REP + CSG lấy B-REP cho đường biên ngoài và CSG "
+         "để giảm dữ liệu lưu trữ."),
+    ])
+    b.para("So sánh cho bài toán chấm công. Bài toán chỉ cần biểu diễn khối văn phòng — một lăng "
+           "trụ đứng có đáy là mặt sàn được thuê — và trả lời “điểm chấm công có nằm trong khối "
+           "không”. Tiêu chí: dựng được từ dữ liệu sẵn có (footprint OpenStreetMap và số tầng), "
+           "dung lượng nhỏ, hiển thị được trên web, mô tả được quan hệ “mặt thuộc khối”.")
+    b.table(
+        ["Mô hình", "Nguyên tố", "Ưu điểm", "Nhược điểm với bài toán"],
+        [
+            ["3D-FDS", "NODE, ARC, EDGE, FACE", "Topology đầy đủ",
+             "Phải lưu cả ARC, EDGE — thừa so với nhu cầu"],
+            ["SSM", "NODE, FACE",
+             "Chỉ hai nguyên tố; làm cho web 3D; FACE IN BODY tường minh",
+             "FACE phải lồi; không biểu diễn bên trong khối"],
+            ["UDM", "NODE, FACE tam giác", "Gọn, hợp đồ hoạ",
+             "Phải tam giác hoá đáy lõm; một bức tường thành nhiều tam giác"],
+            ["SUDM", "Chuyên biệt đô thị", "Hướng tới đối tượng đô thị", "Phức tạp hơn mức cần"],
+            ["3D Array / Octree", "Voxel", "Có biểu diễn bên trong",
+             "Tốn bộ nhớ; biên khối răng cưa"],
+            ["CSG", "Khối cơ bản", "Tính thể tích thuận tiện",
+             "Không biểu diễn được footprint bất quy tắc"],
+            ["V-3D", "NODE, EDGE, FACET + ảnh", "Gắn ảnh cho mặt",
+             "Không cần ảnh mặt dựng"],
+        ],
+        widths=[1.2, 1.3, 1.8, 1.8])
+    b.para("Lựa chọn: mô hình SSM làm mô hình logic.", bold=True)
+    b.bullets([
+        "Khối văn phòng là một BODY bao bởi các FACE phẳng — mặt đáy, mặt nắp và n mặt bên — "
+        "đúng cấu trúc NODE – FACE – BODY của SSM, không cần ARC, EDGE như 3D-FDS.",
+        "SSM được thiết kế cho ứng dụng GIS 3D trên nền web, đúng môi trường của đề tài "
+        "(ArcGIS Maps SDK for JavaScript chạy trên trình duyệt).",
+        "Mặt đáy giữ nguyên đa giác nền lấy từ OpenStreetMap, không phải tam giác hoá như UDM; "
+        "mỗi mặt bên ứng với đúng một đoạn tường thật.",
+        "Quan hệ FACE IN BODY cho biết mặt nào thuộc văn phòng nào; NODE ON FACE có thứ tự nên "
+        "suy được hướng (pháp tuyến) của từng mặt.",
+    ])
+    b.para("Điều chỉnh so với SSM gốc: footprint thật thường lõm (IFC One Saigon có 18 đỉnh, mặt "
+           "cong) nên ràng buộc FACE lồi được nới lỏng cho mặt đáy và mặt nắp; các mặt bên luôn là "
+           "tứ giác lồi. SSM không biểu diễn bên trong khối, nhưng khối là lăng trụ đứng nên phép "
+           "kiểm tra điểm thuộc khối tách được thành hai phép kiểm tra đơn giản (mục 2.1.7).",
+           italic=True)
+    b.image("08-ssm-map.png", "Hình 2.4 — Mô hình SSM áp vào khối MAP: lược đồ đối tượng "
+            "và cách đánh số NODE, FACE của hàm ssm_cua_khoi()")
+    b.para("Biểu diễn và dung lượng dữ liệu. Theo cách tính của tài liệu ví dụ môn học (mã định "
+           "danh 4 byte, toạ độ 8 byte):", bold=True)
+    b.code("NODE(#NID, X, Y, Z)              -> 4 + 3 x 8 = 28 byte / dòng\n"
+           "FACE(#FID, BID)                  -> 4 + 4     =  8 byte / dòng\n"
+           "NODE_ON_FACE(#FID, #NID, THU_TU) -> 4 + 4 + 4 = 12 byte / dòng\n"
+           "BODY(#BID)                       -> 4 byte / dòng")
+    b.para("Khối có đáy n đỉnh gồm 2n NODE, n + 2 FACE và 6n quan hệ NODE ON FACE.")
+    b.table(
+        ["Khối", "NODE", "FACE", "NODE ON FACE", "Tổng SSM"],
+        [
+            ["Hình hộp chữ nhật (n = 4)", "8 × 28 = 224", "6 × 8 = 48", "24 × 12 = 288", "564 byte"],
+            ["Khối Alpha Tech, IFC One Saigon (n = 18)", "36 × 28 = 1.008", "20 × 8 = 160",
+             "108 × 12 = 1.296", "2.468 byte"],
+        ],
+        widths=[2.0, 1.1, 0.9, 1.2, 0.9])
+    b.para("Vì khối là lăng trụ đứng, toàn bộ NODE và FACE được xác định bởi bộ (P, z_min, z_max). "
+           "Ở mức vật lý nhóm chỉ lưu bộ này: đa giác 19 điểm × 16 byte = 304 byte cộng 4 số thực "
+           "= 32 byte, khoảng 340 byte — nhỏ hơn khoảng 7 lần so với lưu đầy đủ. Khi cần dạng SSM, "
+           "hàm ssm_cua_khoi() trong CSDL trải khối ra đúng cấu trúc NODE – FACE – BODY; số liệu của "
+           "khối Alpha Tech ở bảng trên lấy trực tiếp từ hàm này.")
+
+    # ------------------------------------------------------------------ 2.1.5
+    b.heading("2.1.5. Mức chi tiết (LOD) theo chuẩn CityGML", 3)
+    b.para("CityGML là chuẩn mở của Open Geospatial Consortium để lưu trữ và trao đổi mô hình "
+           "thành phố 3D. Ngoài hình học, CityGML gắn ngữ nghĩa cho từng thành phần (tường, mái, "
+           "cửa…), và chia mức chi tiết (Level of Detail) như sau:")
+    b.image("10-lod-citygml.png", "Hình 2.5 — Các mức chi tiết LOD0 đến LOD4 theo CityGML 2.0")
+    b.table(
+        ["Mức", "Nội dung", "Dữ liệu cần", "Trong đề tài"],
+        [
+            ["LOD0", "Mặt bằng 2.5D: footprint, mô hình địa hình", "Đa giác nền", "Footprint toà nhà (OSM)"],
+            ["LOD1", "Khối đùn (block model) với chiều cao đồng nhất", "Footprint + chiều cao",
+             "Khối MAP dùng cho kiểm tra bao hàm"],
+            ["LOD2", "Thêm hình dạng mái, phân biệt mặt tường / mặt mái", "Hình dạng mái", "—"],
+            ["LOD3", "Kiến trúc mặt ngoài: cửa sổ, cửa đi, ban công, chi tiết mái",
+             "Mặt dựng chi tiết", "Mô hình toà nhà hiển thị trên bản đồ"],
+            ["LOD4", "Thêm nội thất: phòng, cầu thang, đồ đạc", "Bản vẽ trong nhà",
+             "Hướng phát triển (chấm công theo phòng)"],
+        ],
+        widths=[0.6, 2.2, 1.5, 1.8])
+    b.para("Từ CityGML 3.0 (2021), LOD4 được bỏ và phần nội thất có thể biểu diễn ở các mức LOD0–LOD3; "
+           "báo cáo dùng cách chia của CityGML 2.0 vì phổ biến hơn trong tài liệu.")
+    b.para("Đề tài dùng hai mức cho hai mục đích: LOD1 cho phép kiểm tra bao hàm (chi tiết mặt dựng "
+           "không làm thay đổi kết quả), LOD3 để hiển thị toà nhà, đáp ứng yêu cầu bản đồ 3D mức độ "
+           "chi tiết 3 của môn học. Mô hình LOD3 được sinh tự động từ dữ liệu trong CSDL; mỗi thành "
+           "phần gắn một lớp ngữ nghĩa CityGML:")
+    b.table(
+        ["Thành phần LOD3", "Lớp CityGML"],
+        [
+            ["Băng tường ốp đá khối đế, dầm biên từng tầng, tường chắn mái", "WallSurface"],
+            ["Băng cửa kính khối đế, vách kính thân tháp", "Window"],
+            ["Cửa xoay và hai cửa kính sảnh chính (giữa cạnh dài nhất)", "Door"],
+            ["Mái khối đế, sàn mái tum, sân đỗ trực thăng", "RoofSurface"],
+            ["Khung nhôm đứng, mái sảnh, cột sảnh, tum kỹ thuật, thiết bị mái, cột thu lôi",
+             "BuildingInstallation"],
+        ],
+        widths=[4.4, 1.7])
+
+    # ------------------------------------------------------------------ 2.1.6
+    b.heading("2.1.6. Định vị GNSS và sai số trong môi trường đô thị", 3)
+    b.para("Hệ thống định vị toàn cầu bằng vệ tinh (GNSS — gồm GPS, GLONASS, Galileo, BeiDou) xác "
+           "định vị trí bằng cách đo khoảng cách giả tới các vệ tinh dựa trên thời gian truyền tín "
+           "hiệu. Vì đồng hồ của máy thu không đồng bộ với vệ tinh, cần ít nhất bốn vệ tinh để giải "
+           "bốn ẩn: ba toạ độ và sai lệch đồng hồ.")
+    b.para("Trong đô thị có nhiều nhà cao tầng, độ chính xác giảm mạnh vì:")
+    b.bullets([
+        ("Đa đường (multipath): ", "tín hiệu phản xạ trên mặt kính, bê tông rồi mới tới máy thu, "
+         "làm khoảng cách đo bị dài ra."),
+        ("Che khuất (NLOS) — hiệu ứng “hẻm phố đô thị”: ", "chỉ thấy được phần trời hẹp giữa hai "
+         "dãy nhà, các vệ tinh nhìn thấy dồn về một hướng nên hình học vệ tinh kém."),
+        ("Trong nhà: ", "tín hiệu suy hao qua tường và sàn, nhiều khi không định vị được."),
+        ("Thành phần đứng kém hơn thành phần ngang: ", "các vệ tinh đều ở phía trên máy thu nên sai "
+         "số cao độ thường lớn hơn sai số ngang nhiều lần."),
+    ])
+    b.para("Ngoài trời thoáng, điện thoại thông minh thường đạt sai số ngang khoảng 5 m; giữa các "
+           "toà nhà cao tầng sai số có thể lên hàng chục mét. Đây là lý do mô hình MAP cần dung sai "
+           "δxy, và lý do cao độ GNSS không đủ tin cậy để tự phân biệt tầng.")
+    b.para("Geolocation API của trình duyệt trả về latitude, longitude, accuracy (bán kính sai số "
+           "ngang, mét), altitude (cao độ so với elipxoit WGS84, có thể null) và altitudeAccuracy. "
+           "API chỉ hoạt động trong ngữ cảnh an toàn (HTTPS hoặc localhost). Hệ thống dùng accuracy "
+           "cho quy tắc R3 và chỉ dùng altitude khi altitudeAccuracy đủ nhỏ.")
+    b.para("Các công nghệ định vị trong nhà có thể bổ trợ:", bold=True)
+    b.table(
+        ["Công nghệ", "Nguyên lý", "Độ chính xác điển hình", "Ghi chú"],
+        [
+            ["Wi-Fi RSSI", "So cường độ sóng các điểm phát với bản đồ vân tay đã đo",
+             "Vài mét", "Cần khảo sát trước, phải đo lại khi bố trí điểm phát thay đổi"],
+            ["BLE beacon", "Đặt beacon theo tầng / phòng, đo cường độ tín hiệu", "1–3 m",
+             "Phân biệt tầng tốt nếu beacon đặt ở mỗi tầng"],
+            ["Khí áp kế", "Áp suất giảm khoảng 12 Pa mỗi mét cao (gần mực nước biển)",
+             "Phân biệt được từng tầng khi có mốc tham chiếu", "Có sẵn trên nhiều điện thoại; trôi theo thời tiết"],
+            ["UWB", "Đo thời gian bay giữa thẻ và trạm neo", "Dưới 1 m", "Cần hạ tầng riêng"],
+        ],
+        widths=[1.0, 2.3, 1.3, 1.5])
+    b.para("Trong phạm vi đồ án, các công nghệ này được nêu làm hướng phát triển; hệ thống hiện "
+           "dùng nguồn cao độ hỗn hợp — cao độ thiết bị nếu đủ tin cậy, nếu không thì tầng khai báo "
+           "— và đối chiếu với khối MAP.", italic=True)
+
+    # ------------------------------------------------------------------ 2.1.7
+    b.heading("2.1.7. Thuật toán kiểm tra bao hàm", 3)
+    b.para("Điểm thuộc đa giác (point in polygon). Thuật toán phổ biến nhất là bắn tia (ray "
+           "casting), dựa trên định lý đường cong Jordan: từ điểm Q bắn một tia theo một hướng cố "
+           "định và đếm số lần tia cắt các cạnh của đa giác. Số giao điểm lẻ thì Q nằm trong, chẵn "
+           "thì nằm ngoài. Độ phức tạp O(n) với n là số đỉnh.", bold=False)
+    b.image("11-ray-casting.png", "Hình 2.6 — Kiểm tra điểm thuộc đa giác bằng ray casting")
+    b.para("Các trường hợp biên cần xử lý: tia đi đúng qua một đỉnh (dùng quy tắc nửa mở — cạnh "
+           "được tính khi một đầu mút ở trên tia và đầu kia ở dưới hoặc trên đúng tia), và điểm nằm "
+           "đúng trên cạnh. Trong thực tế đề tài không tự cài đặt mà dùng hàm của PostGIS, vốn đã xử "
+           "lý các trường hợp này.")
+    b.para("Điểm thuộc khối (point in polyhedron). Với một khối đa diện bất kỳ, có thể mở rộng ray "
+           "casting sang 3D: bắn tia và đếm số FACE bị cắt, độ phức tạp O(F) theo số mặt. Nhưng khối "
+           "MAP là lăng trụ đứng, nên bài toán tách được thành hai bước rẻ:")
+    b.code("Q thuộc khối  <=>  Q.xy thuộc đa giác đáy P   (2D, O(n))\n"
+           "              AND  z_min <= Q.z <= z_max     (so sánh khoảng, O(1))")
+    b.para("Kiểm tra có dung sai. Vì vị trí đo có sai số, đề tài kiểm tra trên khối đã nới biên. "
+           "Điều kiện ngang trở thành “khoảng cách từ Q tới đa giác không vượt quá δxy” (bằng 0 khi "
+           "Q nằm trong P), cài bằng ST_DWithin trên kiểu geography để có đơn vị mét. Điều kiện đứng "
+           "trở thành z_min − δz ≤ Q.z ≤ z_max + δz. Tổ hợp hai điều kiện cho ba trạng thái:")
+    b.image("12-map-dung-sai.png", "Hình 2.7 — Khối MAP, vùng dung sai và ba trạng thái kết quả")
+    b.para("Phát hiện dịch chuyển bất khả thi (R2). Với hai lần chấm công liên tiếp tại Q1, Q2 cách "
+           "nhau Δt giây, vận tốc tối thiểu cần có là v = d(Q1, Q2) / Δt, với d là khoảng cách trắc "
+           "địa. Nếu v vượt ngưỡng (150 km/h) thì ít nhất một trong hai vị trí là giả. Đây là ví dụ "
+           "dùng chiều thời gian kết hợp chiều không gian.")
+
+    # ------------------------------------------------------------------ 2.1.8
+    b.heading("2.1.8. Công nghệ nền: PostGIS và ArcGIS Maps SDK", 3)
+    b.para("PostGIS là phần mở rộng không gian của PostgreSQL, cài đặt chuẩn OGC Simple Features: "
+           "các kiểu Point, LineString, Polygon, các kiểu Multi, PolyhedralSurface, TIN, đều có thể "
+           "kèm toạ độ Z. Mỗi hình học gắn một mã hệ toạ độ SRID. PostGIS có hai họ kiểu: geometry "
+           "(tính toán trên mặt phẳng, nhanh) và geography (tính trên elipxoit, kết quả bằng mét). "
+           "Chỉ mục GiST cài đặt cây R-tree trên hộp bao, giúp lọc nhanh các đối tượng gần nhau.")
+    b.table(
+        ["Hàm PostGIS", "Chức năng", "Dùng ở đâu trong đề tài"],
+        [
+            ["ST_DWithin(geography)", "Hai hình học cách nhau không quá d mét", "Điều kiện ngang có dung sai δxy"],
+            ["ST_Distance(geography)", "Khoảng cách trắc địa (mét)", "Khoảng cách ngang tới khối, vận tốc R2"],
+            ["ST_Intersects", "Hai hình học có giao nhau", "Kiểm tra khối MAP nằm trên toà nhà"],
+            ["ST_GeomFromGeoJSON, ST_MakeValid", "Đọc và sửa hình học do người dùng vẽ", "API quản trị"],
+            ["ST_ForcePolygonCCW, ST_PointN", "Chuẩn hoá chiều vòng, lấy đỉnh", "Trải khối theo SSM"],
+            ["ST_Area(geography)", "Diện tích (m²)", "Thống kê diện tích nền, thể tích khối"],
+        ],
+        widths=[1.8, 2.1, 2.2])
+    b.para("ArcGIS Maps SDK for JavaScript (bài thực hành Lab 1, Lab 2) tổ chức theo mô hình Map – "
+           "View: Map chứa nền bản đồ (basemap), địa hình (ground) và các lớp (layer); View hiển thị "
+           "Map — MapView cho 2D và SceneView cho 3D. SceneView điều khiển bằng camera gồm vị trí "
+           "(position), góc phương vị (heading, theo chiều kim đồng hồ từ hướng Bắc) và góc nghiêng "
+           "(tilt). Đối tượng vẽ là Graphic gồm hình học, ký hiệu và thuộc tính.")
+    b.table(
+        ["Thành phần", "Ý nghĩa", "Dùng trong đề tài"],
+        [
+            ["elevationInfo: absolute-height", "Đặt hình học đúng cao độ tuyệt đối của toạ độ Z",
+             "Khối MAP, toà nhà, điểm chấm công"],
+            ["elevationInfo: on-the-ground", "Bám theo mặt địa hình, bỏ qua Z", "Lớp vẽ đa giác của quản trị"],
+            ["ExtrudeSymbol3DLayer", "Đùn đa giác thành khối theo chiều cao", "Khối MAP, khối đế, vách kính, dầm tầng"],
+            ["PathSymbol3DLayer", "Biến đường thành ống / hộp 3D", "Khung nhôm đứng, tường chắn mái"],
+            ["ObjectSymbol3DLayer", "Đặt vật thể 3D cơ bản (hộp, trụ, cầu) tại một điểm",
+             "Cửa, cột sảnh, thiết bị mái, điểm chấm công"],
+            ["SketchViewModel", "Công cụ vẽ và sửa hình học trên bản đồ", "Vẽ footprint toà nhà và đa giác khối"],
+        ],
+        widths=[1.8, 2.2, 2.1])
 
 
 def ch2_mo_hinh_hoa(b):
-    b.para("Mô hình prism thuần tuý được biến đổi thành mô hình phục vụ riêng bài "
-           "toán chấm công, đặt tên là MAP — Khối chấm công phân tầng "
-           "(Multi-floor Attendance Prism).")
+    b.para("Từ mô hình SSM ở mục 2.1, nhóm chuyên biệt hoá BODY thành một lăng trụ đứng "
+           "gắn với một văn phòng và bổ sung hai tham số dung sai, đặt tên là MAP — Khối "
+           "chấm công phân tầng (Multi-floor Attendance Prism).")
+    b.table(
+        ["SSM gốc", "MAP"],
+        [
+            ["BODY bất kỳ, bao bởi FACE bất kỳ",
+             "BODY luôn là lăng trụ đứng: 1 FACE đáy, 1 FACE nắp, n FACE bên"],
+            ["FACE phẳng, lồi", "FACE đáy, nắp được phép lõm (giữ nguyên footprint thật)"],
+            ["Lưu đầy đủ NODE, FACE, NODE ON FACE",
+             "Lưu gọn (P, z_min, z_max); trải ra SSM bằng ssm_cua_khoi() khi cần"],
+            ["Không có khái niệm sai số", "Thêm δxy, δz để bù sai số định vị"],
+            ["Toạ độ Z của NODE nhập trực tiếp", "z_min, z_max suy ra từ dải tầng bằng trigger"],
+        ],
+        widths=[2.6, 3.5])
     b.para()
     b.para("a) Định nghĩa", bold=True)
     b.code("MAP = ( P, z_min, z_max, δxy, δz )")
@@ -356,7 +668,7 @@ def ch2_erd(b):
            "ban), không gian (toà nhà, văn phòng, khu vực chấm công), nhân sự (nhân "
            "viên, người dùng, vai trò, thiết bị) và nghiệp vụ chấm công (ca làm việc, "
            "phân ca, bản ghi chấm công, cảnh báo, đơn giải trình).")
-    b.image("01-erd.png", "Hình 2.1 — Sơ đồ quan hệ thực thể (ERD)")
+    b.image("01-erd.png", "Hình 2.2 — Sơ đồ quan hệ thực thể (ERD)")
     b.para("Ba thực thể mang tính không gian, là phần khác biệt so với một hệ thống "
            "chấm công thông thường:")
     b.table(
@@ -387,7 +699,7 @@ def ch2_quan_he(b):
         "CONG_TY(ma_cong_ty, ten_cong_ty, ma_so_thue)\n\n"
         "PHONG_BAN(ma_phong_ban, ma_cong_ty↑, ten_phong_ban)\n\n"
         "TOA_NHA(ma_toa_nha, ten, dia_chi, footprint, cao_do_nen, so_tang,\n"
-        "        chieu_cao_tang, nguon_du_lieu)\n\n"
+        "        chieu_cao_tang, so_tang_de, nguon_du_lieu)\n\n"
         "VAN_PHONG(ma_van_phong, ma_cong_ty↑, ma_toa_nha↑, ten,\n"
         "          tang_bat_dau, tang_ket_thuc)\n\n"
         "KHU_VUC_CHAM_CONG(ma_khu_vuc, ma_van_phong↑, da_giac_nen, z_min, z_max,\n"
@@ -435,7 +747,7 @@ def ch2_quan_he(b):
 def ch2_usecase(b):
     b.para("Hệ thống có ba tác nhân người dùng (nhân viên, quản lý, quản trị viên) và "
            "một tác nhân hệ thống ngoài là dịch vụ định vị của thiết bị.")
-    b.image("02-usecase.png", "Hình 2.2 — Sơ đồ trường hợp sử dụng")
+    b.image("02-usecase.png", "Hình 2.3 — Sơ đồ trường hợp sử dụng")
     b.para("Đặc tả UC2 — Chấm công vào/ra", bold=True)
     b.table(
         ["Mục", "Nội dung"],
@@ -484,9 +796,9 @@ def ch2_usecase(b):
 
 def ch2_dfd(b):
     b.para("Sơ đồ mức 0 (sơ đồ ngữ cảnh)", bold=True)
-    b.image("03-dfd0.png", "Hình 2.3 — DFD mức 0")
+    b.image("03-dfd0.png", "Hình 2.4 — DFD mức 0")
     b.para("Sơ đồ mức 1", bold=True)
-    b.image("04-dfd1.png", "Hình 2.4 — DFD mức 1")
+    b.image("04-dfd1.png", "Hình 2.5 — DFD mức 1")
     b.para("Đặc tả các tiến trình:", bold=True)
     b.table(
         ["Tiến trình", "Đầu vào", "Xử lý", "Đầu ra"],
@@ -511,17 +823,17 @@ def ch2_dfd(b):
 
 def ch2_sequence(b):
     b.para("SD1 — Chấm công vào (gồm cả nhánh lệch tầng)", bold=True)
-    b.image("05-sd1-cham-cong.png", "Hình 2.5 — Sơ đồ trình tự chấm công vào")
+    b.image("05-sd1-cham-cong.png", "Hình 2.6 — Sơ đồ trình tự chấm công vào")
     b.para("Điểm cần chú ý: nhánh thứ hai của khối alt mô tả đúng tình huống mà hàng "
            "rào 2D bỏ sót — toạ độ ngang nằm trong vùng nhưng cao độ lệch khỏi dải "
            "tầng, hệ thống trả về NGHI NGỜ và sinh cảnh báo R1 thay vì chấp nhận.",
            italic=True)
     b.para()
     b.para("SD2 — Quản trị viên dựng khối vùng chấm công", bold=True)
-    b.image("06-sd2-dung-khoi.png", "Hình 2.6 — Sơ đồ trình tự dựng khối MAP")
+    b.image("06-sd2-dung-khoi.png", "Hình 2.7 — Sơ đồ trình tự dựng khối MAP")
     b.para()
     b.para("SD3 — Duyệt đơn giải trình", bold=True)
-    b.image("07-sd3-giai-trinh.png", "Hình 2.7 — Sơ đồ trình tự duyệt đơn giải trình")
+    b.image("07-sd3-giai-trinh.png", "Hình 2.8 — Sơ đồ trình tự duyệt đơn giải trình")
 
 
 def ch3_cong_nghe(b):
@@ -529,22 +841,26 @@ def ch3_cong_nghe(b):
         ["Lớp", "Công nghệ", "Lý do lựa chọn"],
         [
             ["Bản đồ 3D", "ArcGIS Maps SDK for JavaScript 4.29 (SceneView, GraphicsLayer, "
-                          "PolygonSymbol3D, ExtrudeSymbol3DLayer, SketchViewModel)",
-             "Đúng công nghệ môn học; hỗ trợ sẵn khối đùn, công cụ phác thảo 3D và lớp địa hình"],
-            ["Giao diện", "React + Vite", "Tách thành phần rõ ràng, thuận tiện chia việc trong nhóm"],
+                          "PolygonSymbol3D + ExtrudeSymbol3DLayer, LineSymbol3D + "
+                          "PathSymbol3DLayer, ObjectSymbol3DLayer, SketchViewModel)",
+             "Đúng công nghệ môn học (Lab 1, Lab 2); dựng được khối đùn, đường 3D và vật "
+             "thể 3D cho mô hình LOD3; có sẵn công cụ phác thảo đa giác"],
+            ["Giao diện", "HTML, CSS, JavaScript thuần (không framework)",
+             "Không cần bước build — máy chủ phục vụ thẳng thư mục web"],
             ["Định vị", "HTML5 Geolocation API",
              "Chạy trực tiếp trên trình duyệt di động, không cần cài ứng dụng"],
-            ["Máy chủ", "Node.js + Express", "Cùng ngôn ngữ với phía giao diện, triển khai nhanh"],
-            ["Cơ sở dữ liệu", "PostgreSQL + PostGIS",
-             "Lưu được hình học có toạ độ Z; có sẵn ST_Contains, ST_DWithin, ST_Distance "
-             "trên kiểu geography cho kết quả tính bằng mét"],
+            ["Máy chủ", "Node.js + Express 5",
+             "Tự chuyển lỗi của hàm async sang bộ bắt lỗi — một yêu cầu sai không làm sập máy chủ"],
+            ["Cơ sở dữ liệu", "PostgreSQL 17 + PostGIS 3.5",
+             "Hình học có toạ độ Z; ST_DWithin, ST_Distance trên geography cho kết quả bằng "
+             "mét; logic không gian và ràng buộc viết bằng PL/pgSQL đặt cạnh dữ liệu"],
             ["Xác thực", "JWT + bcrypt", "Phân quyền ba vai trò nhân viên / quản lý / quản trị"],
             ["Dữ liệu nền", "OpenStreetMap qua Overpass API",
              "Nguồn footprint toà nhà miễn phí, giấy phép ODbL"],
-            ["Triển khai", "Vercel (giao diện) + Render (máy chủ và CSDL)",
-             "Đủ dùng ở mức đồ án, có HTTPS sẵn"],
+            ["Chạy demo", "Windows: PostgreSQL portable + tệp .bat; Linux/macOS: Docker + chay-demo.sh",
+             "Clone về là chạy được, không phụ thuộc dịch vụ đám mây"],
         ],
-        widths=[1.0, 2.1, 3.0])
+        widths=[1.0, 2.3, 2.8])
     b.para("Lưu ý kỹ thuật bắt buộc: Geolocation API chỉ hoạt động trên kết nối HTTPS "
            "hoặc localhost. Khi trình diễn trên điện thoại phải dùng tên miền có chứng "
            "chỉ hoặc công cụ tạo đường hầm như ngrok; mở bằng địa chỉ IP nội bộ sẽ bị "
@@ -552,131 +868,225 @@ def ch3_cong_nghe(b):
 
 
 def ch3_giao_dien(b):
-    b.para("Danh sách màn hình của ứng dụng:")
+    b.para("Ứng dụng là một trang web duy nhất, chia tab theo vai trò: nhân viên thấy Chấm công và "
+           "Lịch sử; quản lý thấy thêm tab Quản lý; quản trị viên thấy thêm tab Quản trị. Tất cả "
+           "màn hình dưới đây đã được cài đặt và chụp từ ứng dụng đang chạy với dữ liệu mẫu.")
     b.table(
-        ["STT", "Màn hình", "Thành phần chính"],
+        ["STT", "Màn hình", "Vai trò", "Thành phần chính"],
         [
-            ["1", "Đăng nhập", "Biểu mẫu tài khoản, điều hướng theo vai trò"],
-            ["2", "Chấm công (ưu tiên giao diện di động)",
-             "Nút vào/ra cỡ lớn, hiển thị độ chính xác GPS, ô chọn tầng, bản đồ thu nhỏ"],
-            ["3", "Lịch sử chấm công", "Bảng theo tháng, tô màu theo trạng thái"],
-            ["4", "Bản đồ 3D vị trí chấm công",
-             "SceneView: khối toà nhà, các khối MAP bán trong suốt, điểm chấm công đặt đúng cao độ"],
-            ["5", "Bảng điều khiển quản lý", "Thống kê đi muộn/đúng giờ, danh sách cảnh báo R1–R4"],
-            ["6", "Duyệt đơn giải trình", "Danh sách đơn kèm xem vị trí 3D của bản ghi liên quan"],
-            ["7", "Quản trị khối MAP",
-             "Công cụ vẽ đa giác trên SceneView, nhập dải tầng và dung sai, xem trước khối"],
-            ["8", "Báo cáo công", "Bảng tổng hợp theo phòng ban, xuất Excel/PDF"],
+            ["1", "Đăng nhập", "mọi người", "Biểu mẫu, gợi ý tài khoản thử nghiệm"],
+            ["2", "Chấm công", "mọi người",
+             "Thông tin văn phòng và khối MAP, chọn tầng, nguồn vị trí GPS / mô phỏng, nút VÀO / RA"],
+            ["3", "Bản đồ 3D", "mọi người",
+             "Toà nhà LOD3 / LOD1, khối MAP, tấm sàn tầng đang chọn, điểm chấm công"],
+            ["4", "Lịch sử chấm công", "mọi người", "Màu theo trạng thái, gửi giải trình, xuất CSV"],
+            ["5", "Bảng điều khiển quản lý", "quản lý",
+             "Số liệu tổng hợp, cảnh báo R1–R4, duyệt đơn, báo cáo công, xuất CSV"],
+            ["6", "Quản trị — Thống kê", "quản trị", "Số liệu dữ liệu nền, chấm công theo khối"],
+            ["7", "Quản trị — Toà nhà", "quản trị", "Thêm / sửa / xoá; vẽ footprint, xem trước LOD3"],
+            ["8", "Quản trị — Văn phòng & khối MAP", "quản trị",
+             "Thêm / sửa / xoá; dải tầng, dung sai, đa giác riêng; xem trước khối"],
+            ["9", "Quản trị — Nhân viên, ca, công ty, phòng ban", "quản trị",
+             "Thêm / sửa / xoá kèm tài khoản; phân ca theo khoảng ngày"],
         ],
-        widths=[0.4, 1.9, 3.8])
-    b.para("Màn hình số 4 là màn hình đặc thù của đề tài. Hình dưới là bản dựng thử "
-           "nghiệm trên toà nhà IFC One Saigon với ba khối MAP ứng với ba doanh nghiệp "
-           "thuê ở ba dải tầng khác nhau:")
-    b.image(os.path.join(SHOT, "01-ba-khoi-MAP.png"),
-            "Hình 3.1 — Ba khối MAP trong cùng một toà nhà: Alpha Tech (cam, tầng 5–8), "
-            "Beta Finance (xanh, tầng 20–24), Gamma Media (tím, tầng 35–40)")
+        widths=[0.4, 1.8, 0.8, 3.1])
+
+    b.heading("3.2.1. Màn hình đăng nhập", 3)
+    b.image(os.path.join(SHOT, "08-dang-nhap.png"), "Hình 3.1 — Màn hình đăng nhập", max_w=3.6)
+    b.bullets([
+        "Hai ô tên đăng nhập và mật khẩu; máy chủ kiểm tra bằng bcrypt và trả về JWT có hạn 8 giờ.",
+        "Bảng tài khoản thử nghiệm bên dưới: bấm vào tên đăng nhập là điền sẵn để trình diễn nhanh.",
+        "Tài khoản bị chuyển sang “nghỉ việc” không đăng nhập được; JWT lưu ở trình duyệt nên tải lại "
+        "trang không phải đăng nhập lại.",
+    ])
+
+    b.heading("3.2.2. Màn hình chấm công", 3)
+    b.image(os.path.join(SHOT, "03-app-cham-cong.png"),
+            "Hình 3.2 — Màn hình chấm công: chấm công đúng tầng 6, kết quả HỢP LỆ")
+    b.bullets([
+        ("Thông tin làm việc: ", "công ty, văn phòng, toà nhà, dải tầng, dải cao độ khối (z_min – z_max) "
+         "và dung sai δxy, δz — đọc từ CSDL theo nhân viên đang đăng nhập."),
+        ("Thanh chọn tầng: ", "kéo tới tầng đang làm việc; dòng dưới hiện cao độ suy ra từ tầng, và "
+         "tấm sàn tầng đó sáng lên trên bản đồ (xanh lá nếu trong dải được phép, hổ phách nếu ngoài)."),
+        ("Nguồn vị trí: ", "GPS thiết bị (Geolocation API) hoặc Mô phỏng — bấm lên bản đồ để chọn "
+         "vị trí, dùng khi trình diễn trong phòng."),
+        ("Kết quả: ", "khung màu theo trạng thái, kèm khoảng cách ngang tới khối, cao độ, độ lệch cao độ "
+         "và danh sách cảnh báo R1–R4 nếu có."),
+    ])
+
+    b.heading("3.2.3. Bản đồ 3D: toà nhà LOD3 và khối MAP", 3)
+    b.para("Bản đồ dùng SceneView với nền bản đồ và địa hình thế giới. Toà nhà được dựng ở hai mức "
+           "chi tiết, chuyển qua lại bằng nút LOD1 / LOD3 ở góc trái; ô “Khối MAP” bật tắt các khối "
+           "văn phòng bán trong suốt (cam: Alpha Tech, xanh: Beta Finance, tím: Gamma Media).")
+    b.image(os.path.join(SHOT, "06-lod3.png"),
+            "Hình 3.3 — Toà nhà IFC One Saigon và toà nhà thêm bằng tab Quản trị, dựng ở LOD3")
+    b.image(os.path.join(SHOT, "07-lod1.png"),
+            "Hình 3.4 — Cùng góc nhìn ở LOD1 (khối đùn trơn) — mức dùng cho phép kiểm tra bao hàm")
+    b.para("Mỗi thành phần LOD3 đều có popup cho biết lớp CityGML. Hai hình sau là cận cảnh lối "
+           "vào chính (cửa xoay được chọn, lớp Door) và phần mái (sân đỗ trực thăng, lớp RoofSurface; "
+           "thiết bị kỹ thuật và cột thu lôi thuộc BuildingInstallation):")
+    b.image(os.path.join(SHOT, "11-lod3-loi-vao.png"),
+            "Hình 3.5 — Lối vào chính LOD3: mái sảnh, cột, cửa xoay, băng kính và băng tường khối đế")
+    b.image(os.path.join(SHOT, "12-lod3-mai.png"),
+            "Hình 3.6 — Mái LOD3: tum kỹ thuật, thiết bị, sân đỗ trực thăng, cột thu lôi, tường chắn mái")
+
+    b.heading("3.2.4. Lịch sử chấm công và giải trình", 3)
+    b.image(os.path.join(SHOT, "10-lich-su.png"), "Hình 3.7 — Lịch sử chấm công của nhân viên")
+    b.bullets([
+        "Mỗi dòng là một bản ghi: thời điểm, loại VÀO / RA, tầng khai báo, cao độ, trạng thái tô màu, số cảnh báo.",
+        "Bản ghi chưa hợp lệ có nút “Gửi giải trình”; sau khi gửi, cột cuối hiện trạng thái đơn (CHỜ DUYỆT, ĐÃ DUYỆT, TỪ CHỐI).",
+        "Nút “Xuất CSV” tải lịch sử ra tệp mở đúng tiếng Việt trong Excel (BOM UTF-8, phân cách bằng dấu chấm phẩy).",
+    ])
+
+    b.heading("3.2.5. Bảng điều khiển của quản lý", 3)
+    b.image(os.path.join(SHOT, "04-app-quan-ly.png"),
+            "Hình 3.8 — Bảng điều khiển quản lý: một đơn giải trình đang chờ duyệt")
+    b.bullets([
+        ("Bảng điều khiển: ", "số bản ghi theo trạng thái, tổng cảnh báo và số đơn chờ duyệt."),
+        ("Cảnh báo bất thường: ", "sắp theo mức độ (CAO trước) rồi theo thời gian, có cột đã xử lý."),
+        ("Đơn giải trình: ", "duyệt hoặc từ chối. Duyệt thì bản ghi tự chuyển sang HỢP LỆ và cảnh "
+         "báo liên quan được đóng, trong cùng một giao dịch."),
+        ("Báo cáo công tháng: ", "lượt vào, số bản ghi theo trạng thái, số ngày công của từng nhân viên; xuất CSV."),
+    ])
+    b.image(os.path.join(SHOT, "13-quan-ly-sau-duyet.png"),
+            "Hình 3.9 — Sau khi duyệt: bản ghi NGHI NGỜ thành HỢP LỆ, cảnh báo R1 đã xử lý")
+
+    b.heading("3.2.6. Quản trị: thống kê dữ liệu nền", 3)
+    b.image(os.path.join(SHOT, "14-quan-tri-thong-ke.png"),
+            "Hình 3.10 — Tab Quản trị, mục Thống kê, bản đồ ảnh vệ tinh với hai toà nhà LOD3")
+    b.para("Mục Thống kê cho số toà nhà, văn phòng, khối MAP đang hiệu lực, nhân viên, công ty, "
+           "ca làm việc và tổng thể tích các khối (tính bằng diện tích nền trắc địa nhân chiều cao "
+           "khối). Bảng “Chấm công theo khối MAP” đếm số bản ghi của từng khối theo ba trạng thái; "
+           "bấm một dòng thì bản đồ bay tới khối đó.")
+
+    b.heading("3.2.7. Quản trị: toà nhà", 3)
+    b.image(os.path.join(SHOT, "15-quan-tri-toa-nha.png"),
+            "Hình 3.11 — Sửa toà nhà: biểu mẫu bên trái, mô hình LOD3 xem trước bên phải")
+    b.bullets([
+        "Danh sách toà nhà kèm số tầng, chiều cao tầng, diện tích nền và số văn phòng.",
+        "Biểu mẫu nhập tên, địa chỉ, cao độ nền, số tầng, chiều cao tầng, số tầng khối đế và nguồn dữ liệu.",
+        "Footprint được vẽ trực tiếp trên bản đồ (bấm từng đỉnh, bấm đúp để kết thúc) hoặc sửa từng "
+        "đỉnh; mô hình LOD3 dựng lại ngay mỗi khi đổi thông số.",
+        "Sửa chiều cao tầng hay cao độ nền thì mọi khối MAP trong toà nhà được trigger tính lại; không "
+        "xoá được toà nhà còn văn phòng.",
+    ])
+
+    b.heading("3.2.8. Quản trị: văn phòng và khối MAP", 3)
+    b.image(os.path.join(SHOT, "05-quan-tri-khoi-map.png"),
+            "Hình 3.12 — Sửa văn phòng: khối MAP tầng 9–12 xem trước (viền vàng), z = 35,40 → 50,60 m")
+    b.para("Chọn công ty, toà nhà, dải tầng và dung sai. Nếu văn phòng chỉ thuê một phần mặt sàn, "
+           "quản trị viên vẽ đa giác riêng; để trống thì dùng toàn bộ footprint. Cao độ khối không "
+           "nhập tay: giao diện tính trước để xem, còn giá trị lưu do trigger trong CSDL suy ra. "
+           "Khi nhập sai, cả giao diện lẫn CSDL đều chặn:")
+    b.image(os.path.join(SHOT, "16-quan-tri-vuot-tang.png"),
+            "Hình 3.13 — Nhập đến tầng 20 trong toà 18 tầng: khối báo đỏ, CSDL từ chối kèm thông báo")
+
+    b.heading("3.2.9. Quản trị: nhân viên, ca làm việc và phân ca", 3)
+    b.image(os.path.join(SHOT, "17-quan-tri-nhan-vien-ca.png"),
+            "Hình 3.14 — Trái: sửa nhân viên và tài khoản. Phải: ca làm việc và lịch phân ca 7 ngày",
+            max_w=5.2)
+    b.bullets([
+        "Nhân viên được tạo kèm tài khoản và vai trò; phòng ban lọc theo công ty đã chọn; để trống "
+        "mật khẩu khi sửa nghĩa là giữ nguyên.",
+        "Nhân viên đã có bản ghi chấm công không xoá cứng được (giữ lịch sử công) — chuyển sang "
+        "“nghỉ việc” để khoá đăng nhập.",
+        "Ca làm việc có giờ vào, giờ ra, số phút trễ cho phép; phân ca gán một ca cho một nhân viên "
+        "trên một khoảng ngày, tuỳ chọn gồm cả cuối tuần.",
+    ])
 
     b.para()
-    b.para("Hệ thống đã cài đặt", bold=True)
-    b.para("Toàn bộ danh sách màn hình trên đã được cài đặt thành ứng dụng chạy được, "
-           "không dừng ở mức mô tả. Máy chủ Node.js với Express nói chuyện trực tiếp "
-           "với PostgreSQL/PostGIS và phục vụ luôn giao diện web tĩnh, nên hệ thống "
-           "chạy trên một cổng duy nhất — điều này quan trọng vì Geolocation API chỉ "
-           "cấp quyền định vị trên HTTPS hoặc localhost.")
-    b.para("Về mặt kiến trúc, phép kiểm tra bao hàm khối không được viết lại ở tầng "
-           "ứng dụng mà gọi thẳng hàm kiem_tra_bao_ham() và kiem_tra_r2() đã cài đặt "
-           "trong cơ sở dữ liệu. Nhờ vậy logic không gian chỉ tồn tại một bản duy nhất, "
-           "đặt ngay cạnh dữ liệu. Mỗi lần chấm công được xử lý trong một giao dịch: "
-           "ghi bản ghi, áp bốn quy tắc R1–R4 rồi ghi cảnh báo; lỗi ở bất kỳ bước nào "
-           "thì huỷ toàn bộ.")
+    b.para("Kiến trúc hệ thống", bold=True)
+    b.para("Máy chủ Node.js với Express nói chuyện trực tiếp với PostgreSQL/PostGIS và phục vụ luôn "
+           "giao diện web tĩnh, nên hệ thống chạy trên một cổng duy nhất — quan trọng vì Geolocation "
+           "API chỉ cấp quyền định vị trên HTTPS hoặc localhost.")
+    b.para("Phép kiểm tra bao hàm khối không viết lại ở tầng ứng dụng mà gọi thẳng hàm "
+           "kiem_tra_bao_ham() và kiem_tra_r2() trong CSDL. Ràng buộc dữ liệu cũng nằm ở CSDL: "
+           "trigger chặn văn phòng vượt số tầng toà nhà và tự tính lại z_min, z_max mỗi khi sửa dải "
+           "tầng hoặc chiều cao tầng — dù sửa bằng giao diện hay bằng SQL đều được kiểm tra.")
     b.table(
         ["Phương thức", "Đường dẫn", "Quyền", "Chức năng"],
         [
             ["POST", "/api/dang-nhap", "—", "Đăng nhập, trả về JWT"],
-            ["GET", "/api/toi", "đã đăng nhập", "Thông tin nhân viên và khối MAP của họ"],
-            ["GET", "/api/khu-vuc", "đã đăng nhập", "Danh sách khối MAP để vẽ bản đồ"],
+            ["GET", "/api/toi, /api/khu-vuc, /api/toa-nha", "đã đăng nhập",
+             "Thông tin nhân viên, khối MAP, toà nhà để dựng bản đồ"],
+            ["GET", "/api/khu-vuc/:id/ssm", "đã đăng nhập", "Khối MAP trải theo mô hình SSM"],
             ["POST", "/api/cham-cong", "đã đăng nhập",
              "Kiểm tra bao hàm khối, áp R1–R4, ghi bản ghi và cảnh báo"],
-            ["GET", "/api/cham-cong/lich-su", "đã đăng nhập", "Lịch sử của chính mình"],
-            ["POST", "/api/giai-trinh", "đã đăng nhập", "Gửi đơn giải trình"],
-            ["GET", "/api/giai-trinh", "quản lý", "Danh sách đơn"],
-            ["PUT", "/api/giai-trinh/:id", "quản lý", "Duyệt hoặc từ chối đơn"],
-            ["GET", "/api/canh-bao", "quản lý", "Danh sách cảnh báo bất thường"],
-            ["GET", "/api/dashboard", "quản lý", "Số liệu tổng hợp"],
-            ["GET", "/api/bao-cao/cong", "quản lý", "Báo cáo công theo tháng"],
+            ["GET / POST", "/api/cham-cong/lich-su, /api/giai-trinh", "đã đăng nhập",
+             "Lịch sử của chính mình, gửi đơn giải trình"],
+            ["GET / PUT", "/api/giai-trinh, /api/canh-bao, /api/dashboard, /api/bao-cao/cong",
+             "quản lý", "Duyệt đơn, cảnh báo, số liệu tổng hợp, báo cáo công"],
+            ["GET / POST / PUT / DELETE",
+             "/api/quan-tri/{toa-nha, van-phong, nhan-vien, ca-lam-viec, cong-ty, phong-ban, phan-ca}",
+             "quản trị", "Thêm / sửa / xoá dữ liệu nền"],
+            ["GET", "/api/quan-tri/thong-ke", "quản trị", "Thống kê dữ liệu nền và theo khối"],
         ],
-        widths=[0.85, 1.6, 0.95, 2.7])
-    b.image(os.path.join(SHOT, "03-app-cham-cong.png"),
-            "Hình 3.2 — Màn hình chấm công đã cài đặt: thông tin làm việc lấy từ cơ sở "
-            "dữ liệu, thanh chọn tầng, bản đồ ba chiều hiển thị các khối MAP")
-    b.image(os.path.join(SHOT, "04-app-quan-ly.png"),
-            "Hình 3.3 — Bảng điều khiển của quản lý: số liệu tổng hợp và danh sách "
-            "cảnh báo bất thường sinh ra từ bốn quy tắc R1–R4")
+        widths=[1.0, 2.3, 0.9, 1.9])
 
 
 def ch4_ket_qua(b):
-    b.para("Bản dựng thử nghiệm sử dụng dữ liệu thật: footprint toà nhà IFC One "
-           "Saigon lấy từ OpenStreetMap (way/306578560), 42 tầng, chiều cao 195,3 m; "
-           "cao độ nền giả định 5 m nên chiều cao tầng trung bình là 4,65 m. Ba văn "
-           "phòng giả lập được đặt tại ba dải tầng khác nhau nhưng dùng chung một "
-           "footprint — tức là có cùng toạ độ kinh độ, vĩ độ.")
+    b.para("Bản dựng thử nghiệm sử dụng dữ liệu thật: footprint toà nhà IFC One Saigon "
+           "lấy từ OpenStreetMap (way/306578560), 42 tầng, chiều cao 195,3 m; cao độ nền "
+           "giả định 5 m nên chiều cao tầng trung bình là 4,65 m. Ba văn phòng ở ba dải "
+           "tầng khác nhau dùng chung một footprint — tức là có cùng toạ độ kinh độ, vĩ độ.")
     b.para()
     b.para("Kết quả ba tình huống kiểm thử", bold=True)
     b.table(
-        ["Tình huống", "Cao độ điểm", "Khoảng cách ngang",
-         "Kết quả hệ thống 3D", "Kết quả hàng rào 2D"],
+        ["Tình huống", "Cao độ điểm", "Kết quả hệ thống 3D", "Kết quả hàng rào 2D"],
         [
-            ["Nhân viên Alpha Tech chấm công tại tầng 6", "28,25 m", "0 m",
-             "HỢP LỆ", "Hợp lệ"],
-            ["Nhân viên Alpha Tech chấm công tại tầng 22", "104,98 m", "0 m",
-             "NGHI NGỜ (lệch +62,78 m ≈ 13,5 tầng)", "Hợp lệ — bỏ sót"],
-            ["Nhân viên Alpha Tech chấm công cách toà nhà 270 m", "28,25 m", "270,2 m",
-             "NGOÀI VÙNG", "Ngoài vùng"],
+            ["Nhân viên Alpha Tech chấm công tại tầng 6", "30,58 m", "HỢP LỆ", "Hợp lệ"],
+            ["Cùng toạ độ, khai báo tầng 22", "104,98 m",
+             "NGHI NGỜ + R1 (lệch 62,78 m ≈ 13,5 tầng)", "Hợp lệ — bỏ sót"],
+            ["Cách toà nhà khoảng 300 m", "30,58 m", "NGOÀI VÙNG", "Ngoài vùng"],
         ],
-        widths=[1.9, 0.9, 1.0, 1.5, 0.9])
+        widths=[2.2, 0.9, 1.8, 1.2])
+    b.para("Cao độ khai báo tính ở giữa tầng: z_nền + (tầng − 0,5) × h_tầng.", italic=True)
     b.para("Tình huống thứ hai là kết quả quan trọng nhất của đồ án: cùng một toạ độ "
            "ngang, hàng rào 2D kết luận hợp lệ trong khi mô hình MAP phát hiện được "
-           "sai lệch 13,5 tầng và chuyển bản ghi sang trạng thái cần xác minh.",
-           bold=True)
+           "sai lệch 13,5 tầng và chuyển bản ghi sang trạng thái cần xác minh.", bold=True)
     b.image(os.path.join(SHOT, "02-ket-qua-nghi-ngo.png"),
-            "Hình 4.1 — Màn hình kết quả tình huống sai tầng; điểm chấm công (hình "
-            "cầu) nằm trong khối của doanh nghiệp khác")
+            "Hình 4.1 — Tình huống 2 (sai tầng): tấm sàn tầng 22 nằm trong dải của Beta "
+            "Finance; kết quả NGHI NGỜ kèm cảnh báo R1")
+    b.image(os.path.join(SHOT, "09-ngoai-vung.png"),
+            "Hình 4.2 — Tình huống 3 (ngoài vùng): cách khối 213 m, vượt xa δxy = 25 m; vì di "
+            "chuyển quá nhanh so với lần trước nên có thêm cảnh báo R2")
     b.para()
-    b.para("Kiểm chứng cơ sở dữ liệu và toàn hệ thống", bold=True)
-    b.para("Lược đồ và các hàm nghiệp vụ đã được chạy thật trên PostgreSQL 17.6 kết "
-           "hợp PostGIS 3.6.2: tạo 14 bảng, 4 hàm và 1 trigger; trigger suy cao độ cho "
-           "ra đúng các dải 23,60–42,20 m, 93,35–116,60 m và 163,10–191,00 m như công "
-           "thức đã nêu. Sau đó các luồng nghiệp vụ được chạy thử đầu cuối qua API "
-           "thật trên chính cơ sở dữ liệu đó.")
+    b.para("Kiểm thử tự động (npm test) — 34/34 đạt", bold=True)
+    b.para("Lược đồ chạy trên PostgreSQL 17 + PostGIS: 14 bảng, 8 hàm, 4 trigger. Kịch bản "
+           "kiểm thử gọi API thật trên CSDL thật rồi tự dọn dữ liệu thử nghiệm.")
+    b.image(os.path.join(SHOT, "18-kiem-thu.png"), "Hình 4.3 — Kết quả chạy npm test: 34/34 ca đạt")
     b.table(
-        ["Kịch bản kiểm thử", "Kết quả hệ thống trả về"],
+        ["Nhóm", "Nội dung kiểm thử"],
         [
-            ["Chấm công đúng tầng 6", "HOP_LE"],
-            ["Khai báo tầng 22 trong khi thuê tầng 5–8",
-             "NGHI_NGO, kèm cảnh báo R1: lệch 62,78 m tương đương 13,5 tầng"],
-            ["Chấm công ở vị trí cách toà nhà 270 m",
-             "NGOAI_VUNG, kèm cảnh báo R2 về dịch chuyển bất khả thi"],
-            ["Thiết bị báo độ chính xác 0,3 m",
-             "Cảnh báo R3: độ chính xác nhỏ bất thường, nghi giả lập vị trí"],
-            ["Nhân viên khác dùng lại cùng một thiết bị",
-             "Cảnh báo R4: thiết bị vừa được nhân viên khác dùng để chấm công"],
-            ["Nhân viên gọi API dành cho quản lý",
-             "HTTP 403 — không đủ quyền thực hiện chức năng này"],
-            ["Quản lý duyệt đơn giải trình",
-             "Bản ghi chuyển từ NGOAI_VUNG sang HOP_LE, cảnh báo liên quan được đóng, "
-             "báo cáo công cập nhật theo"],
+            ["Mô hình MAP", "Ba tình huống trên và sinh cảnh báo R1"],
+            ["Phân quyền", "Nhân viên và quản lý bị chặn (HTTP 403) khỏi API quản trị"],
+            ["Thêm / sửa / xoá", "Công ty, phòng ban, toà nhà (từ đa giác), văn phòng, nhân viên, ca"],
+            ["Ràng buộc CSDL",
+             "Chặn văn phòng vượt số tầng; chặn khối vẽ ra ngoài toà nhà; chặn trùng tên đăng "
+             "nhập; không xoá toà nhà còn văn phòng; không xoá cứng nhân viên đã có công"],
+            ["Tự tính lại khối",
+             "Sửa dải tầng 3–5 → 6–7: khối 11–23 m → 23–31 m; sửa chiều cao tầng 4 → 5 m: "
+             "khối bên trong → 28–38 m"],
+            ["Mô hình SSM", "Khối hình hộp trải ra đúng 8 NODE, 6 FACE, 24 NODE ON FACE"],
+            ["Luồng đầu–cuối",
+             "Nhân viên mới đăng nhập, chấm công trong khối vừa dựng → HỢP LỆ; chuyển nghỉ "
+             "việc → không đăng nhập được"],
         ],
-        widths=[2.6, 3.5])
+        widths=[1.4, 4.7])
+    b.para()
+    b.para("Đáp ứng yêu cầu môn học", bold=True)
+    b.table(
+        ["Yêu cầu (Danh sách đồ án 2026)", "Đáp ứng"],
+        [
+            ["Thêm, xoá, sửa dữ liệu", "Tab Quản trị: sáu loại dữ liệu và phân ca"],
+            ["Thống kê dữ liệu",
+             "Bảng điều khiển quản lý, báo cáo công tháng, thống kê theo khối, xuất CSV"],
+            ["Hiển thị thực thể không gian trên bản đồ",
+             "Toà nhà, khối MAP, tấm sàn, điểm chấm công trên SceneView"],
+            ["Bản đồ 3D mức độ chi tiết 3", "Toà nhà LOD3 sinh tự động, gắn lớp ngữ nghĩa CityGML"],
+        ],
+        widths=[2.4, 3.7])
 
-    b.para("Kết quả đạt được", bold=True)
-    b.bullets([
-        "Định nghĩa và cài đặt hoàn chỉnh mô hình MAP, gồm công thức suy cao độ từ dải tầng.",
-        "Thuật toán kiểm tra bao hàm khối trả về ba trạng thái, chạy hoàn toàn ở phía "
-        "trình duyệt trong bản dựng thử và có bản cài đặt tương ứng bằng hàm PL/pgSQL "
-        "trên PostGIS.",
-        "Trực quan hoá 3D cho phép nhìn thấy trực tiếp vị trí chấm công so với khối văn phòng.",
-        "Chứng minh được bằng số liệu rằng hàng rào 2D bỏ sót tình huống sai tầng.",
-    ])
     b.para("Hạn chế", bold=True)
     b.numbers([
         "Độ cao GPS trong nhà rất kém. Tín hiệu vệ tinh gần như không thu được trong "
@@ -702,8 +1112,8 @@ def ch4_dinh_huong(b):
     b.bullets([
         "Bổ sung định vị trong nhà bằng BLE beacon đặt theo tầng, hợp nhất kết quả với "
         "mô hình MAP để xác định tầng độc lập với GPS.",
-        "Nâng mức chi tiết lên LoD2/LoD3 theo chuẩn CityGML để mô tả từng phòng, phục "
-        "vụ chấm công theo khu vực làm việc thay vì theo tầng.",
+        "Nâng lên LOD4 (nội thất: từng phòng, hành lang, lõi thang) để chấm công theo "
+        "khu vực làm việc thay vì theo cả dải tầng; khi đó mỗi phòng là một BODY của SSM.",
         "Phân tích vùng che khuất tín hiệu GPS dựa trên mô hình khối của các toà nhà "
         "lân cận, từ đó tự động hiệu chỉnh dung sai ngang theo từng vị trí thay vì "
         "dùng một giá trị cố định.",
@@ -715,7 +1125,17 @@ def ch4_dinh_huong(b):
 
 # ---------------------------------------------------------------------------
 def main():
+    nguon_mau = TEMPLATE
     if not os.path.exists(TEMPLATE):
+        # thử lấy mẫu trong zip tài liệu môn học
+        import glob, io, zipfile
+        for z in glob.glob(os.path.join(ZIP_TAI_LIEU, "*.zip")):
+            with zipfile.ZipFile(z) as f:
+                ten = [n for n in f.namelist() if n.endswith("Mau_do_an_IE402.docx")]
+                if ten:
+                    nguon_mau = io.BytesIO(f.read(ten[0]))
+                    break
+    if nguon_mau is TEMPLATE and not os.path.exists(TEMPLATE):
         raise SystemExit(
             "Không tìm thấy tệp mẫu: " + TEMPLATE
             + "\nScript này điền nội dung vào các chỗ giữ chỗ <...> của mẫu đồ án do"
@@ -724,7 +1144,7 @@ def main():
             + " bình thường; chỉ là không sinh lại được cho tới khi chép lại tệp mẫu."
             + "\nBáo cáo Checkpoint 1 (tools/build_checkpoint1.py) không bị ảnh hưởng.")
 
-    doc = Document(TEMPLATE)
+    doc = Document(nguon_mau)
 
     # Tên đồ án trên trang bìa
     for p in doc.paragraphs:
@@ -767,8 +1187,116 @@ def main():
     fill(doc, "<Hình ảnh thực tế từ ứng dụng", ch4_ket_qua)
     fill(doc, "<Định hướng phát triển mở rộng", ch4_dinh_huong)
 
+    danh_lai_so_hinh(doc)
+    dien_danh_muc(doc)
+    dien_tai_lieu(doc)
+    bat_cap_nhat_truong(doc)
     doc.save(OUT)
     print("DONE ->", OUT)
+
+
+def danh_lai_so_hinh(doc):
+    """Đánh lại số hình theo thứ tự xuất hiện trong từng chương (Hình <chương>.<thứ tự>)."""
+    import re
+    chuong, dem = 0, 0
+    for p in doc.paragraphs:
+        m = re.match(r"^Chương (\d+)", p.text.strip())
+        if m and p.style.name.startswith("Heading 1"):
+            chuong, dem = int(m.group(1)), 0
+            continue
+        if re.match(r"^Hình \d+\.\d+ — ", p.text.strip()) and p.runs:
+            dem += 1
+            r = p.runs[0]
+            r.text = re.sub(r"^Hình \d+\.\d+", "Hình %d.%d" % (chuong, dem), r.text)
+
+
+def dien_danh_muc(doc):
+    """Thay các dòng giữ chỗ 1.1, 1.2, ... của mẫu bằng danh mục hình thật.
+
+    Bảng trong báo cáo không đánh số nên bỏ mục "Bảng biểu" của mẫu."""
+    import re
+    hinh = [p.text.strip() for p in doc.paragraphs if re.match(r"^Hình \d+\.\d+ — ", p.text.strip())]
+    ps = doc.paragraphs
+    i_hinh = next(i for i, p in enumerate(ps) if p.text.strip() == "Hình ảnh")
+    i_bang = next(i for i, p in enumerate(ps) if p.text.strip() == "Bảng biểu")
+    giu_cho = ps[i_hinh + 1:i_bang]
+    mau = giu_cho[0]
+    for t in hinh:
+        moi = copy.deepcopy(mau._element)
+        mau._element.addprevious(moi)
+        from docx.text.paragraph import Paragraph
+        pg = Paragraph(moi, mau._parent)
+        for r in pg.runs[1:]:
+            r._element.getparent().remove(r._element)
+        if pg.runs:
+            pg.runs[0].text = t
+        else:
+            pg.add_run(t)
+    xoa = list(giu_cho)
+    ps = doc.paragraphs
+    i_bang = next(i for i, p in enumerate(ps) if p.text.strip() == "Bảng biểu")
+    i_tl = next(i for i, p in enumerate(ps) if p.text.strip() == "Tài liệu tham khảo")
+    xoa += [p for p in ps[i_bang:i_tl] if p.text.strip() in ("Bảng biểu", "1.1", "1.2", "...")]
+    for p in xoa:
+        p._element.getparent().remove(p._element)
+
+
+TAI_LIEU = [
+    "Nguyễn Gia Tuấn Anh, Dương Thúy Nga (2017). Cơ sở dữ liệu GIS và ứng dụng "
+    "(tài liệu chính của môn học)",
+    "Abdul-Rahman, Alias; Pilouk, Morakot (2008). Spatial Data Modelling for 3D GIS, "
+    "Springer-Verlag, Berlin Heidelberg",
+    "Molenaar, Martien (1990). “A formal data structure for three dimensional vector maps”, "
+    "Proceedings of the 4th International Symposium on Spatial Data Handling, Zürich",
+    "Zlatanova, Sisi (2000). 3D GIS for Urban Development, luận án tiến sĩ, ITC Dissertation "
+    "Series No. 69, Enschede",
+    "Coors, Volker (2003). “3D-GIS in networking environments”, Computers, Environment and "
+    "Urban Systems, 27(4), 345–357",
+    "Gröger, Gerhard; Kolbe, Thomas H.; Nagel, Claus; Häfele, Karl-Heinz (2012). "
+    "“OGC City Geography Markup Language (CityGML) Encoding Standard, Version 2.0.0”, "
+    "Open Geospatial Consortium, OGC 12-019",
+    "Phan Thanh Vũ (2026). “Hệ thống thông tin địa lý 3 chiều” (bài giảng) và “ArcGIS JS — "
+    "Lab 1, Lab 2”, Trường Đại học Công nghệ Thông tin — ĐHQG TP. HCM",
+    "Esri (2024). “ArcGIS Maps SDK for JavaScript 4.29 — API Reference”, "
+    "<https://developers.arcgis.com/javascript/latest/api-reference/>, truy cập ngày 14/10/2026",
+    "PostGIS Project Steering Committee (2024). “PostGIS 3.5 Manual”, "
+    "<https://postgis.net/docs/manual-3.5/>, truy cập ngày 14/10/2026",
+    "OpenStreetMap contributors (2026). “Way 306578560 — IFC One Saigon”, "
+    "<https://www.openstreetmap.org/way/306578560>, truy cập ngày 14/10/2026",
+    "W3C (2022). “Geolocation API”, W3C Recommendation, "
+    "<https://www.w3.org/TR/geolocation/>, truy cập ngày 14/10/2026",
+]
+
+
+def dien_tai_lieu(doc):
+    """Thay phần hướng dẫn cách trích dẫn của mẫu bằng danh sách tài liệu thật."""
+    ps = doc.paragraphs
+    i = next(k for k, p in enumerate(ps) if p.text.strip() == "Tài liệu tham khảo")
+    sau = [p for p in ps[i + 1:]]
+    mau = next((p for p in sau if p.text.strip()), None)
+    for p in sau:
+        p._element.getparent().remove(p._element)
+    neo = ps[i]._element
+    for k, t in enumerate(TAI_LIEU, start=1):
+        pg = doc.add_paragraph()
+        pg.paragraph_format.left_indent = Inches(0.35)
+        pg.paragraph_format.first_line_indent = Inches(-0.35)
+        pg.paragraph_format.space_after = Pt(4)
+        pg.add_run("[%d]  " % k)
+        pg.add_run(t + ".")
+        neo.addnext(pg._element)
+        neo = pg._element
+
+
+def bat_cap_nhat_truong(doc):
+    """Đặt cờ để Word cập nhật mục lục (số trang) ngay khi mở tệp."""
+    from docx.oxml.ns import qn
+    from docx.oxml import OxmlElement
+    st = doc.settings.element
+    if st.find(qn("w:updateFields")) is None:
+        e = OxmlElement("w:updateFields")
+        e.set(qn("w:val"), "true")
+        st.append(e)
 
 
 if __name__ == "__main__":

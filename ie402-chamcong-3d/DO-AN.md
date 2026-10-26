@@ -73,39 +73,126 @@ hợp lệ của bản ghi chấm công theo chiều đứng.
 
 ## 2.1. Cơ sở lý thuyết — lựa chọn mô hình 3D
 
-Các mô hình biểu diễn đối tượng 3D thường dùng trong GIS:
+### 2.1.1. Bốn hướng tiếp cận biểu diễn đối tượng 3D
 
-| Mô hình | Mô tả | Ưu điểm | Nhược điểm |
+| Hướng tiếp cận | Ý tưởng | Mô hình tiêu biểu (theo bài giảng) |
+|---|---|---|
+| **B-REP** — biểu diễn bởi đường biên | Đối tượng được mô tả bằng các phần tử biên: điểm, đường, bề mặt, khối | 3D-FDS, SSM, UDM, SUDM, TEN, OO, CityGML |
+| **Voxel** — chia nhỏ không gian | Chia khối thành các ô con, mỗi ô mang một giá trị | 3D Array, Octree |
+| **CSG** — tổ hợp khối cơ bản | Ghép các khối cơ bản bằng phép biến đổi và phép hội/giao/hiệu | CSG |
+| **Tổ hợp** | Kết hợp các cách trên | V-3D, B-REP + CSG |
+
+### 2.1.2. So sánh các mô hình cho bài toán chấm công
+
+Bài toán chỉ cần biểu diễn **khối văn phòng** — một lăng trụ đứng có đáy là mặt sàn
+được thuê — và trả lời câu hỏi *“điểm chấm công có nằm trong khối không”*. Các tiêu
+chí được xét: dựng được từ dữ liệu sẵn có (footprint OSM + số tầng), dung lượng nhỏ,
+hiển thị được trên web, và mô tả được quan hệ “mặt thuộc khối”.
+
+| Mô hình | Đối tượng nguyên tố | Ưu điểm | Nhược điểm với bài toán |
 |---|---|---|---|
-| **2.5D / Prism (khối đùn)** | Đa giác nền + chiều cao đùn lên | Nhẹ, dựng trực tiếp từ footprint + số tầng; phép kiểm tra bao hàm rất rẻ | Không mô tả được phần nhô ra, mái vòm, nội thất |
-| **B-Rep** (Boundary Representation) | Mô tả bằng mặt – cạnh – đỉnh | Chính xác, mô tả được hình học phức tạp | Nặng, khó dựng, khó truy vấn không gian |
-| **CSG** (Constructive Solid Geometry) | Tổ hợp Boolean các khối cơ bản | Gọn cho hình dạng quy tắc | Không phù hợp dữ liệu đo đạc thực tế |
-| **Voxel / Octree** | Chia không gian thành ô lập phương | Truy vấn thể tích, mô phỏng lan truyền tốt | Tốn bộ nhớ, mất độ chính xác biên |
-| **TIN** | Lưới tam giác bất quy tắc | Tốt cho địa hình | Chỉ là bề mặt, không phải khối |
+| **3D-FDS** (Molenaar, 1990) | NODE, ARC, EDGE, FACE | Topology đầy đủ | Phải lưu cả ARC/EDGE — thừa so với nhu cầu, dữ liệu lớn |
+| **SSM** (Zlatanova, 2000) | NODE, FACE | Chỉ hai nguyên tố; thiết kế cho truy vấn hiển thị 3D trên **web**; quan hệ NODE ON FACE, FACE IN BODY tường minh | FACE phải phẳng, lồi; không biểu diễn bên trong khối |
+| **UDM** (Coors, 2003) | NODE, FACE tam giác | Gọn, phù hợp đồ hoạ | Phải tam giác hoá đa giác nền lõm (cần thuật toán tam giác hoá có ràng buộc); một bức tường bị tách thành nhiều tam giác, mất ý nghĩa “một mặt” |
+| **SUDM** (Nguyễn Gia Tuấn Anh) | Chuyên biệt cho đô thị | Hướng tới đối tượng đô thị | Phức tạp hơn mức bài toán cần |
+| **3D Array / Octree** | Voxel | Có biểu diễn bên trong, kiểm tra “điểm thuộc khối” = tra ô | Tốn bộ nhớ; biên khối bị răng cưa theo độ phân giải ô |
+| **CSG** | Khối cơ bản + phép toán | Tính thể tích thuận tiện | Không biểu diễn được footprint bất quy tắc của toà nhà thật |
+| **V-3D** | NODE, EDGE, FACET + ảnh | Gắn ảnh raster cho mặt | Không cần ảnh mặt dựng cho bài toán chấm công |
 
-**Lựa chọn: mô hình 2.5D Prism.** Lý do:
+**Lựa chọn: mô hình SSM làm mô hình logic.** Lý do:
 
-1. Bài toán chỉ cần trả lời **“điểm có nằm trong khối văn phòng không”**, không cần mô
-   tả kiến trúc. Prism là mức chi tiết vừa đủ (tương đương **LoD1** trong chuẩn
-   CityGML).
-2. Phép kiểm tra tách được thành hai bước rẻ: *point-in-polygon* trên mặt phẳng
-   (thuật toán ray casting, O(n) theo số đỉnh) **và** so sánh `z_min ≤ z ≤ z_max`.
-   Đáp ứng M2.
-3. Dữ liệu đầu vào sẵn có: footprint toà nhà lấy được từ OpenStreetMap, số tầng và
-   chiều cao tầng lấy từ khảo sát thực tế — không cần quét laser hay mô hình BIM.
-4. Được ArcGIS Maps SDK hỗ trợ trực tiếp bằng `PolygonSymbol3D` +
-   `ExtrudeSymbol3DLayer`, và PostGIS hỗ trợ kiểu `POLYGONZ` / `POLYHEDRALSURFACE`.
+1. Khối văn phòng là một BODY duy nhất được bao bởi các FACE phẳng: mặt đáy, mặt nắp
+   và n mặt bên — đúng cấu trúc NODE – FACE – BODY của SSM, không cần ARC/EDGE như
+   3D-FDS.
+2. SSM được thiết kế cho ứng dụng GIS 3D trên nền web — đúng môi trường của đề tài
+   (ArcGIS Maps SDK for JavaScript chạy trên trình duyệt).
+3. Mặt đáy giữ nguyên đa giác nền P lấy từ OpenStreetMap, không phải tam giác hoá như
+   UDM; mỗi mặt bên ứng với đúng một đoạn tường thật.
+4. Quan hệ topology *FACE IN BODY* cho biết mặt nào thuộc văn phòng nào; *NODE ON
+   FACE* có thứ tự nên suy được hướng (pháp tuyến) của từng mặt.
 
-**Nhược điểm chấp nhận được:** mọi tầng của một văn phòng bị coi là một khối liền,
-không mô tả được vách ngăn bên trong. Với bài toán chấm công (chỉ cần xác định *thuộc
-văn phòng nào*), đây không phải hạn chế thực chất.
+**Điều chỉnh so với SSM gốc** (trình bày ở mục 2.2):
+
+- SSM yêu cầu FACE lồi; footprint thật thường lõm (IFC One Saigon có 18 đỉnh, mặt
+  cong). Nhóm **nới lỏng ràng buộc lồi cho mặt đáy và mặt nắp** — vẫn phẳng và có
+  hướng; các mặt bên luôn là tứ giác lồi.
+- SSM không biểu diễn bên trong khối, nhưng khối MAP là lăng trụ đứng nên phép kiểm
+  tra “điểm thuộc khối” tách được thành *điểm thuộc đa giác đáy* và *cao độ nằm giữa
+  mặt đáy và mặt nắp* — không cần lưu phần bên trong.
+
+### 2.1.3. Biểu diễn và dung lượng dữ liệu
+
+Cách tính theo tài liệu ví dụ của môn: mã định danh 4 byte, toạ độ 8 byte. Lược đồ
+quan hệ SSM dùng cho khối MAP:
+
+```
+NODE(#NID, X, Y, Z)              -> 4 + 3 x 8 = 28 byte / dòng
+FACE(#FID, BID)                  -> 4 + 4     =  8 byte / dòng
+NODE_ON_FACE(#FID, #NID, THU_TU) -> 4 + 4 + 4 = 12 byte / dòng
+BODY(#BID)                       -> 4 byte / dòng
+```
+
+Một khối có đáy n đỉnh có **2n NODE**, **n + 2 FACE** và **6n quan hệ NODE ON FACE**
+(đáy n + nắp n + mỗi mặt bên 4).
+
+| Khối | NODE | FACE | NODE ON FACE | Dung lượng SSM |
+|---|---|---|---|---|
+| Hình hộp chữ nhật (n = 4) | 8 × 28 = 224 | 6 × 8 = 48 | 24 × 12 = 288 | **564 byte** |
+| Khối Alpha Tech, IFC One Saigon (n = 18) | 36 × 28 = 1.008 | 20 × 8 = 160 | 108 × 12 = 1.296 | **2.468 byte** |
+
+Số liệu của khối Alpha Tech lấy trực tiếp từ hàm `ssm_cua_khoi(1)` trong CSDL (chạy
+cuối `seed.sql`) và từ API `GET /api/khu-vuc/:id/ssm`.
+
+**Nhận xét.** Vì khối MAP là lăng trụ đứng, toàn bộ 2n NODE và n + 2 FACE được xác
+định hoàn toàn bởi bộ (P, z_min, z_max). Do đó **ở mức vật lý** nhóm chỉ lưu bộ này:
+đa giác 19 điểm × 16 byte = 304 byte cộng 4 số thực (z_min, z_max, δxy, δz) = 32 byte,
+tổng khoảng **340 byte — nhỏ hơn khoảng 7 lần** so với lưu đầy đủ theo SSM. Khi cần
+dạng SSM (xuất dữ liệu, minh hoạ, tính toán hình học), hàm `ssm_cua_khoi()` trải khối
+ra đúng cấu trúc NODE – FACE – BODY.
+
+![Mô hình SSM áp vào khối MAP](docs/diagrams/08-ssm-map.png)
+
+### 2.1.4. Mức chi tiết: LOD1 để tính toán, LOD3 để hiển thị
+
+Theo chuẩn CityGML, mức chi tiết (Level of Detail) của công trình gồm LOD0 (mặt bằng),
+LOD1 (khối đùn), LOD2 (thêm hình dạng mái), LOD3 (kiến trúc mặt ngoài: cửa sổ, cửa đi,
+chi tiết mái) và LOD4 (nội thất). Đề tài dùng **hai mức cho hai mục đích**:
+
+| Mục đích | Mức | Lý do |
+|---|---|---|
+| Kiểm tra bao hàm khi chấm công | **LOD1** (khối MAP) | Phép kiểm tra chỉ cần đa giác nền và dải cao độ; chi tiết mặt dựng không làm thay đổi kết quả |
+| Hiển thị toà nhà trên bản đồ 3D | **LOD3** | Đáp ứng yêu cầu “bản đồ 3D mức độ chi tiết 3” của môn; người dùng nhận ra toà nhà, tầng, lối vào |
+
+Mô hình LOD3 không dựng tay mà **sinh tự động** từ chính dữ liệu trong CSDL
+(footprint, cao độ nền, số tầng, chiều cao tầng, số tầng khối đế). Mỗi thành phần gắn
+một lớp ngữ nghĩa CityGML:
+
+| Thành phần LOD3 | Lớp CityGML | Cách dựng |
+|---|---|---|
+| Băng tường ốp đá khối đế, dầm biên từng tầng, tường chắn mái | `WallSurface` | Khối đùn mỏng theo footprint đã phóng |
+| Băng cửa kính khối đế, vách kính thân tháp | `Window` | Khối đùn kính bán trong suốt |
+| Cửa xoay, hai cửa kính sảnh chính | `Door` | Đặt ở giữa cạnh dài nhất của khối đế, xoay theo hướng cạnh |
+| Mái khối đế, sàn mái tum, sân đỗ trực thăng | `RoofSurface` | Khối đùn / hình trụ dẹt |
+| Khung nhôm đứng, mái sảnh, cột sảnh, tum kỹ thuật, thiết bị mái, cột thu lôi | `BuildingInstallation` | Đường 3D dạng hộp, vật thể 3D |
+
+Thêm một toà nhà bằng tab Quản trị là tự có mô hình LOD3; trên bản đồ có nút chuyển
+**LOD1 ⇄ LOD3** để so sánh trực tiếp.
 
 ## 2.2. Mô hình hoá — Mô hình MAP (Multi-floor Attendance Prism)
 
 ### 2.2.1. Định nghĩa
 
-Biến đổi mô hình prism thuần tuý thành mô hình phục vụ riêng bài toán chấm công, đặt
-tên là **MAP — Khối chấm công phân tầng**.
+Từ mô hình SSM ở mục 2.1, nhóm chuyên biệt hoá BODY thành một **lăng trụ đứng gắn với
+một văn phòng** và bổ sung hai tham số dung sai, đặt tên là **MAP — Khối chấm công
+phân tầng**. Khác biệt so với SSM gốc:
+
+| SSM gốc | MAP |
+|---|---|
+| BODY bất kỳ, bao bởi FACE bất kỳ | BODY luôn là lăng trụ đứng: 1 FACE đáy, 1 FACE nắp, n FACE bên |
+| FACE phẳng, lồi | FACE đáy/nắp được phép lõm (giữ nguyên footprint thật) |
+| Lưu đầy đủ NODE, FACE, NODE ON FACE | Lưu gọn (P, z_min, z_max); trải ra SSM bằng `ssm_cua_khoi()` khi cần |
+| Không có khái niệm sai số | Thêm δxy, δz để bù sai số định vị |
+| Toạ độ Z của NODE nhập trực tiếp | z_min, z_max **suy ra** từ dải tầng bằng trigger |
 
 Một khối MAP là bộ:
 
@@ -312,7 +399,7 @@ CONG_TY(ma_cong_ty, ten_cong_ty, ma_so_thue)
 
 PHONG_BAN(ma_phong_ban, ma_cong_ty↑, ten_phong_ban)
 
-TOA_NHA(ma_toa_nha, ten, dia_chi, footprint, cao_do_nen, so_tang, chieu_cao_tang)
+TOA_NHA(ma_toa_nha, ten, dia_chi, footprint, cao_do_nen, so_tang, chieu_cao_tang, so_tang_de, nguon_du_lieu)
 
 VAN_PHONG(ma_van_phong, ma_cong_ty↑, ma_toa_nha↑, ten, tang_bat_dau, tang_ket_thuc)
 
@@ -530,25 +617,34 @@ sequenceDiagram
 sequenceDiagram
     actor QT as Quản trị viên
     participant SV as SceneView (ArcGIS)
-    participant SK as Công cụ phác thảo
+    participant SK as SketchViewModel
     participant API as Máy chủ ứng dụng
     participant DB as CSDL không gian
 
-    QT->>SV: Chọn toà nhà trên bản đồ 3D
-    SV->>API: GET /toa-nha/{id}
-    API->>DB: Truy vấn footprint, cao độ nền, số tầng
-    DB-->>API: Dữ liệu toà nhà
-    API-->>SV: Hiển thị khối toà nhà (extrude)
-    QT->>SK: Vẽ đa giác nền của văn phòng
-    SK-->>SV: Hình học đa giác
-    QT->>SV: Nhập dải tầng, dung sai δxy, δz
-    SV->>API: POST /khu-vuc {đa_giác, tầng_đầu, tầng_cuối, δxy, δz}
-    API->>API: z_min = cao_độ_nền + (tầng_đầu-1) × h_tầng
-    API->>API: z_max = cao_độ_nền + tầng_cuối × h_tầng
-    API->>DB: Lưu khối MAP
-    DB-->>API: Xác nhận
-    API-->>SV: Trả khối đã lưu
-    SV-->>QT: Dựng khối xem trước trong không gian 3D
+    QT->>SV: Mở tab Quản trị
+    SV->>API: GET /quan-tri/toa-nha, /quan-tri/van-phong
+    API->>DB: Truy vấn footprint, cao độ nền, số tầng, các khối MAP
+    DB-->>API: Dữ liệu
+    API-->>SV: Dựng toà nhà LOD3 + các khối MAP
+    QT->>SV: Chọn toà nhà, nhập dải tầng, δxy, δz
+    SV-->>QT: Xem trước khối (z suy ra ngay ở trình duyệt)
+    opt Văn phòng chỉ thuê một phần mặt sàn
+        QT->>SK: Vẽ / sửa đỉnh đa giác nền P
+        SK-->>SV: Đa giác (đổi Web Mercator → WGS84)
+    end
+    SV->>API: POST /quan-tri/van-phong {P, tầng đầu, tầng cuối, δxy, δz}
+    API->>DB: Kiểm tra P chạm footprint toà nhà (ST_Intersects)
+    API->>DB: INSERT van_phong, khu_vuc_cham_cong (z_min, z_max = NULL)
+    DB->>DB: Trigger kiểm tra tầng cuối ≤ số tầng
+    DB->>DB: Trigger suy z_min, z_max từ cao độ nền và chiều cao tầng
+    alt vi phạm ràng buộc
+        DB-->>API: Lỗi kèm thông báo tiếng Việt
+        API-->>SV: 400 — hiển thị lỗi trên biểu mẫu
+    else hợp lệ
+        DB-->>API: Khối đã lưu
+        API-->>SV: 201 + z_min, z_max
+        SV-->>QT: Vẽ lại bản đồ quản trị và bản đồ chấm công
+    end
 ```
 
 ### SD3 — Duyệt đơn giải trình
@@ -583,46 +679,79 @@ sequenceDiagram
 
 | Lớp | Công nghệ | Lý do chọn |
 |---|---|---|
-| Bản đồ 3D | **ArcGIS Maps SDK for JavaScript 4.29** (`SceneView`, `GeoJSONLayer`, `PolygonSymbol3D`, `ExtrudeSymbol3DLayer`, `SketchViewModel`) | Đúng công nghệ môn học; hỗ trợ sẵn khối đùn và công cụ phác thảo 3D |
-| Giao diện | React + Vite (hoặc Next.js) | Tách thành phần rõ, dễ chia việc trong nhóm |
+| Bản đồ 3D | **ArcGIS Maps SDK for JavaScript 4.29** (`SceneView`, `GraphicsLayer`, `PolygonSymbol3D` + `ExtrudeSymbol3DLayer`, `LineSymbol3D` + `PathSymbol3DLayer`, `ObjectSymbol3DLayer`, `SketchViewModel`) | Đúng công nghệ môn học (Lab 1, Lab 2); dựng được khối đùn, đường 3D và vật thể 3D cho mô hình LOD3; có sẵn công cụ phác thảo đa giác |
+| Giao diện | HTML + CSS + JavaScript thuần, không framework | Không cần bước build — máy chủ phục vụ thẳng thư mục `web/`; dễ đọc khi chấm |
 | Định vị | HTML5 Geolocation API | Chạy trên trình duyệt di động, không cần cài app |
-| Máy chủ | Node.js + Express (hoặc NestJS) | Cùng ngôn ngữ với frontend |
-| **CSDL** | **PostgreSQL + PostGIS** | Lưu được kiểu hình học có Z, có sẵn `ST_Contains`, `ST_3DDWithin`, `ST_Buffer`; đây là khác biệt so với các đồ án dùng MongoDB |
-| Xác thực | JWT + bcrypt | Phân quyền ba vai trò |
-| Dữ liệu nền | OpenStreetMap qua Overpass API | Lấy footprint toà nhà; giấy phép ODbL |
-| Triển khai | Vercel (frontend) + Render/Railway (backend + PostGIS) | Miễn phí ở mức đồ án |
+| Máy chủ | Node.js + Express 5 | Express 5 tự chuyển lỗi của hàm `async` sang bộ bắt lỗi, một yêu cầu sai không làm sập máy chủ |
+| **CSDL** | **PostgreSQL 17 + PostGIS 3.5** | Kiểu hình học có Z, `ST_DWithin`/`ST_Distance` trên `geography` cho kết quả bằng mét; logic không gian (kiểm tra bao hàm, R2, trải khối SSM) và ràng buộc (dải tầng, tự tính cao độ) viết bằng PL/pgSQL đặt cạnh dữ liệu |
+| Xác thực | JWT + bcrypt | Phân quyền ba vai trò nhân viên / quản lý / quản trị |
+| Dữ liệu nền | OpenStreetMap qua Overpass API | Footprint toà nhà; giấy phép ODbL |
+| Chạy demo | Windows: PostgreSQL portable + tệp `.bat`; Linux/macOS: Docker + `chay-demo.sh` | Clone về là chạy được một lệnh, không phụ thuộc dịch vụ đám mây |
 
 **Lưu ý bắt buộc:** Geolocation API chỉ hoạt động trên **HTTPS** (hoặc `localhost`).
 Khi demo trên điện thoại phải dùng tên miền có chứng chỉ, hoặc `ngrok`.
 
 ## 3.2. Giao diện ứng dụng
 
-Danh sách màn hình cần dựng mockup và chụp hình cho báo cáo:
+Tất cả màn hình dưới đây đã được cài đặt và chạy được.
 
-| # | Màn hình | Thành phần chính |
-|---|---|---|
-| 1 | Đăng nhập | Form, chọn vai trò |
-| 2 | Chấm công (nhân viên, ưu tiên mobile) | Nút vào/ra cỡ lớn, hiển thị độ chính xác GPS, chọn tầng, bản đồ nhỏ |
-| 3 | Lịch sử chấm công | Bảng theo tháng, màu theo trạng thái |
-| 4 | Bản đồ 3D vị trí chấm công | SceneView: khối toà nhà + khối MAP bán trong suốt + điểm chấm công theo cao độ, lọc theo ngày/nhân viên |
-| 5 | Bảng điều khiển quản lý | Số liệu đi muộn/đúng giờ, danh sách cảnh báo R1–R4 |
-| 6 | Duyệt đơn giải trình | Danh sách đơn + xem vị trí 3D của bản ghi liên quan |
-| 7 | Quản trị khối MAP | Công cụ vẽ đa giác trên SceneView, nhập dải tầng và dung sai, xem trước khối |
-| 8 | Báo cáo công | Bảng tổng hợp, xuất Excel/PDF |
+| # | Màn hình | Vai trò | Thành phần chính |
+|---|---|---|---|
+| 1 | Đăng nhập | mọi người | Biểu mẫu, gợi ý bốn tài khoản thử nghiệm |
+| 2 | Chấm công | mọi người | Thông tin văn phòng và khối MAP, thanh chọn tầng, nguồn vị trí GPS / mô phỏng, nút VÀO / RA, kết quả kèm cảnh báo |
+| 3 | Bản đồ 3D | mọi người | Toà nhà **LOD3** (chuyển được sang LOD1), các khối MAP bán trong suốt, tấm sàn tầng đang chọn, điểm chấm công đặt đúng cao độ; bấm vào thành phần nào cũng hiện lớp CityGML |
+| 4 | Lịch sử chấm công | mọi người | Bảng màu theo trạng thái, gửi giải trình, xuất CSV |
+| 5 | Bảng điều khiển quản lý | quản lý | Số liệu tổng hợp, cảnh báo R1–R4, duyệt đơn giải trình, báo cáo công tháng, xuất CSV |
+| 6 | Quản trị — Thống kê | quản trị | Số toà nhà, văn phòng, khối hiệu lực, nhân viên, tổng thể tích khối; số lượt chấm công theo từng khối (bấm để bay tới khối) |
+| 7 | Quản trị — Toà nhà | quản trị | Thêm / sửa / xoá; **vẽ footprint trên bản đồ 3D**, xem trước mô hình LOD3 ngay khi nhập số tầng |
+| 8 | Quản trị — Văn phòng & khối MAP | quản trị | Thêm / sửa / xoá; chọn toà nhà + dải tầng + dung sai, vẽ đa giác riêng nếu chỉ thuê một phần sàn; xem trước khối, báo đỏ nếu vượt số tầng |
+| 9 | Quản trị — Nhân viên | quản trị | Thêm / sửa / xoá kèm tài khoản, vai trò; khoá tài khoản (nghỉ việc) mà vẫn giữ lịch sử công |
+| 10 | Quản trị — Ca làm việc, công ty, phòng ban | quản trị | Thêm / sửa / xoá; phân ca theo khoảng ngày |
 
----
+![Toà nhà LOD3](docs/06-lod3.png)
+![Cùng góc nhìn ở LOD1](docs/07-lod1.png)
+![Quản trị văn phòng và khối MAP](docs/05-quan-tri-khoi-map.png)
 
 # Chương 4: KẾT QUẢ VÀ ĐỊNH HƯỚNG PHÁT TRIỂN
 
-## 4.1. Kết quả *(điền sau khi hoàn thành)*
+## 4.1. Kết quả
 
-Gợi ý số liệu nên đo và đưa vào báo cáo:
+**Dữ liệu thử nghiệm.** Toà nhà IFC One Saigon (footprint thật OSM way/306578560,
+42 tầng, 195,3 m) với ba văn phòng ở ba dải tầng: Alpha Tech 5–8, Beta Finance 20–24,
+Gamma Media 35–40. Trigger suy ra đúng các dải 23,60–42,20 m, 93,35–116,60 m,
+163,10–191,00 m.
 
-- Số toà nhà và khối MAP đã số hoá.
-- Thời gian phản hồi trung bình của một lần chấm công (mục tiêu < 200 ms).
-- Kết quả thử nghiệm thực địa: chấm công đúng tầng / sai tầng / ngoài toà nhà, mỗi
-  trường hợp lặp N lần, lập bảng ma trận nhầm lẫn.
-- Sai số độ cao đo được thực tế so với cao độ tầng lý thuyết.
+**Ba tình huống của mô hình MAP** (chạy qua giao diện và qua API):
+
+| Tình huống | Cao độ | Hệ 3D | Hàng rào 2D |
+|---|---|---|---|
+| Nhân viên Alpha Tech chấm công ở tầng 6 | 30,58 m | `HOP_LE` | hợp lệ |
+| Cùng toạ độ, khai báo tầng 22 | 104,98 m | `NGHI_NGO` + R1 (lệch 62,78 m ≈ 13,5 tầng) | **hợp lệ — bỏ sót** |
+| Cách toà nhà khoảng 300 m | 30,58 m | `NGOAI_VUNG` | ngoài vùng |
+
+(Cao độ khai báo tính ở **giữa tầng**: z_nền + (tầng − 0,5) × h_tầng. Ba câu kiểm thử
+cuối `seed.sql` dùng cao độ sàn tầng 6 là 28,25 m, cùng cho kết quả `HOP_LE`.)
+
+**Kiểm thử tự động** `npm test` — 34/34 đạt, gồm:
+
+| Nhóm | Nội dung kiểm thử |
+|---|---|
+| Mô hình MAP | Ba tình huống trên + sinh cảnh báo R1 |
+| Phân quyền | Nhân viên và quản lý bị chặn (403) khỏi API quản trị |
+| Thêm / sửa / xoá | Công ty, phòng ban, toà nhà (từ đa giác), văn phòng, nhân viên, ca làm việc |
+| Ràng buộc CSDL | Chặn văn phòng vượt số tầng; chặn khối vẽ ra ngoài toà nhà; chặn trùng tên đăng nhập; không xoá toà nhà còn văn phòng; không xoá cứng nhân viên đã có công |
+| Tự tính lại khối | Sửa dải tầng 3–5 → 6–7: khối đổi từ 11–23 m sang 23–31 m; sửa chiều cao tầng toà nhà 4 → 5 m: khối bên trong đổi sang 28–38 m |
+| Mô hình SSM | Khối hình hộp trải ra đúng 8 NODE, 6 FACE, 24 NODE ON FACE |
+| Luồng đầu–cuối | Nhân viên mới tạo đăng nhập được, chấm công trong khối vừa dựng → `HOP_LE`; chuyển sang nghỉ việc → không đăng nhập được nữa |
+
+**Đáp ứng yêu cầu môn học:**
+
+| Yêu cầu (Danh sách đồ án 2026) | Đáp ứng |
+|---|---|
+| Thêm, xoá, sửa dữ liệu | Tab Quản trị: 6 loại dữ liệu + phân ca |
+| Thống kê dữ liệu | Bảng điều khiển quản lý, báo cáo công tháng, thống kê theo khối, xuất CSV |
+| Hiển thị thực thể không gian trên bản đồ | Toà nhà, khối MAP, tấm sàn, điểm chấm công trên SceneView |
+| Bản đồ 3D mức độ chi tiết 3 | Toà nhà LOD3 sinh tự động, có lớp ngữ nghĩa CityGML |
 
 ## 4.2. Hạn chế cần nêu trung thực
 
@@ -645,8 +774,8 @@ Gợi ý số liệu nên đo và đưa vào báo cáo:
 ## 4.3. Định hướng phát triển
 
 - Bổ sung định vị trong nhà bằng BLE beacon đặt theo tầng, hợp nhất với mô hình MAP.
-- Nâng mức chi tiết lên **LoD2/LoD3** theo chuẩn CityGML để mô tả từng phòng, phục vụ
-  chấm công theo khu vực làm việc thay vì theo tầng.
+- Nâng lên **LOD4** (nội thất: từng phòng, hành lang, lõi thang) để chấm công theo khu
+  vực làm việc thay vì theo cả dải tầng; khi đó mỗi phòng là một BODY của SSM.
 - Phân tích vùng che khuất tín hiệu GPS dựa trên mô hình khối các toà nhà lân cận, để
   tự động hiệu chỉnh dung sai `δxy` theo từng vị trí.
 - Mở rộng cho công trường xây dựng: khối MAP theo cao độ thi công thay đổi theo thời
@@ -666,10 +795,14 @@ Gợi ý số liệu nên đo và đưa vào báo cáo:
 
 # Phụ lục B — Việc cần làm trước buổi bảo vệ
 
-- [ ] Chọn toà nhà thử nghiệm, đo/tra cao độ nền và chiều cao tầng.
-- [ ] Lấy footprint từ Overpass, kiểm tra lại bằng ảnh vệ tinh.
-- [ ] Nhập ít nhất 3 văn phòng ở 3 dải tầng khác nhau trong cùng toà nhà — đây là
-      minh chứng trực tiếp cho việc geofence 2D không đủ.
+- [x] Chọn toà nhà thử nghiệm, đo/tra cao độ nền và chiều cao tầng.
+- [x] Lấy footprint từ Overpass, kiểm tra lại bằng ảnh vệ tinh.
+- [x] Nhập ít nhất 3 văn phòng ở 3 dải tầng khác nhau trong cùng toà nhà.
+- [x] Chức năng thêm / sửa / xoá và thống kê (yêu cầu chung của môn).
+- [x] Bản đồ 3D mức chi tiết 3 (LOD3).
+- [ ] Bổ sung đủ thành viên theo quy định 6–8 sinh viên / nhóm và bảng phân công thật
+      (Phụ lục A hiện mới có 4 người).
+- [ ] Quay video demo (nộp Moodle kèm báo cáo PDF, PPT, mã nguồn, bảng phân công).
 - [ ] Quay video thử nghiệm thực địa: chấm công đúng tầng, sai tầng, ngoài toà nhà.
 - [ ] Chuẩn bị trả lời câu hỏi: *“vì sao không dùng geofence 2D?”* — dùng đúng ví dụ ở
-      mục 1.2(a).
+      mục 1.2(a); *“vì sao chọn SSM mà không chọn UDM?”* — mục 2.1.2.
