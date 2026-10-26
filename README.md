@@ -42,19 +42,27 @@ sai tầng**.
 | `DO-AN.md` | Hồ sơ thiết kế đầy đủ (ERD, Use Case, DFD, Sequence dạng Mermaid) |
 | `CHECKPOINT1-*.docx` | Báo cáo Checkpoint 1 theo mẫu của lớp |
 | `DO-AN-IE402-*.docx` | Báo cáo theo mẫu đồ án môn học |
-| `server/` | Máy chủ Node.js + Express: đăng nhập JWT, API chấm công, duyệt đơn, báo cáo |
-| `web/` | Giao diện web nối API, bản đồ 3D dựng bằng ArcGIS SDK |
+| `server/` | Máy chủ Node.js + Express: đăng nhập JWT, API chấm công, duyệt đơn, báo cáo, API quản trị |
+| `web/` | Giao diện web nối API, bản đồ 3D LOD1/LOD3 dựng bằng ArcGIS SDK, tab Quản trị |
 | `prototype/` | Bản dựng đầu tiên: chỉ thuật toán, chạy hoàn toàn ở trình duyệt |
 | `db/` | Lược đồ PostGIS + dữ liệu mẫu + hàm `kiem_tra_bao_ham()` |
 | `tools/` | Script sinh tài liệu, chuyển đổi, và tự động hoá thao tác trình duyệt |
 | `docs/` | Sơ đồ đã kết xuất và ảnh chụp kết quả |
 
+Ứng dụng có đủ chức năng **thêm / sửa / xoá** (tab Quản trị: toà nhà, văn phòng & khối
+MAP, nhân viên, ca làm việc, công ty, phòng ban), **thống kê**, và bản đồ 3D dựng toà
+nhà ở **LOD3** (chuyển được sang LOD1). Mô hình logic là **SSM** (Zlatanova, 2000) —
+xem `DO-AN.md` mục 2.1.
+
 ```bash
-cd ie402-chamcong-3d/server
-npm install && npm start          # rồi mở http://127.0.0.1:3000
+cd ie402-chamcong-3d
+./chay-demo.sh                    # Linux/macOS: Docker dựng PostGIS, bật máy chủ, mở http://127.0.0.1:3000
+./chay-demo.sh --kiem-thu         # + chạy 34 ca kiểm thử tự động
+./tat-demo.sh                     # tắt
 ```
 
-Cần dựng PostgreSQL + PostGIS trước — xem
+Windows: nhấp đúp `CAI-DAT.bat` (một lần) rồi `BAT-DEMO.bat`. Cần dựng PostgreSQL +
+PostGIS trước — xem
 [`ie402-chamcong-3d/db/README.md`](ie402-chamcong-3d/db/README.md) (hướng dẫn bản
 portable, không cần Docker). Chi tiết vận hành và kịch bản trình diễn:
 [`ie402-chamcong-3d/README.md`](ie402-chamcong-3d/README.md).
@@ -63,9 +71,9 @@ Kết quả kiểm thử trên toà nhà thật (IFC One Saigon, 42 tầng / 195
 
 | Tình huống | Cao độ | Hệ 3D | Hàng rào 2D |
 |---|---|---|---|
-| Chấm công đúng tầng 6 | 28,25 m | `HOP_LE` | hợp lệ |
+| Chấm công đúng tầng 6 | 30,58 m | `HOP_LE` | hợp lệ |
 | Chấm công ở tầng 22 | 104,98 m | `NGHI_NGO` (lệch 13,5 tầng) | **hợp lệ — bỏ sót** |
-| Cách toà nhà 270 m | 28,25 m | `NGOAI_VUNG` | ngoài vùng |
+| Cách toà nhà 270 m | 30,58 m | `NGOAI_VUNG` | ngoài vùng |
 
 ---
 

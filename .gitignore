@@ -17,3 +17,12 @@ Thumbs.db
 
 # Biến môi trường thật (chỉ đưa lên .env.example)
 .env
+
+# PID máy chủ do chay-demo.sh ghi
+.server.pid
+
+# Tài liệu môn học do giảng viên phát — không đưa lên repo công khai
+tai lieu mon 3D/
+
+# Nhật ký ngrok khi mở link ra ngoài
+*.log

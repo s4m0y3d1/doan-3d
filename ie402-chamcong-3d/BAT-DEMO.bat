@@ -62,7 +62,7 @@ start "" http://127.0.0.1:3000
 echo.
 echo ============================================================
 echo  DA SAN SANG:  http://127.0.0.1:3000
-echo  Tai khoan:    an.nv / binh.tt / cuong.lm / dung.pt
+echo  Tai khoan:    khoi.nm / nhan.vt / vy.nt / tin.nh
 echo  Mat khau:     123456
 echo.
 echo  De nguyen cua so "May chu cham cong 3D" - dong no la tat server.
